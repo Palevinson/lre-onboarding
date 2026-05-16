@@ -57,18 +57,18 @@ export default async function AdminRosterPage() {
             Click any person to drill in. Admins can change roles from the detail page.
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 w-full sm:w-auto sm:shrink-0">
           {caller.role === 'admin' && (
             <Link
               href="/admin/content"
-              className="inline-flex items-center gap-2 bg-gray-800 text-gray-200 font-semibold py-2.5 px-4 rounded-lg text-sm hover:bg-gray-700"
+              className="inline-flex items-center justify-center gap-2 flex-1 sm:flex-initial bg-gray-800 text-gray-200 font-semibold py-2.5 px-4 rounded-lg text-sm hover:bg-gray-700"
             >
-              <Settings className="w-4 h-4" /> Manage Content
+              <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Manage Content</span><span className="sm:hidden">Content</span>
             </Link>
           )}
           <Link
             href="/admin/invite"
-            className="inline-flex items-center gap-2 bg-amber-500 text-black font-semibold py-2.5 px-4 rounded-lg text-sm hover:bg-amber-400"
+            className="inline-flex items-center justify-center gap-2 flex-1 sm:flex-initial bg-amber-500 text-black font-semibold py-2.5 px-4 rounded-lg text-sm hover:bg-amber-400"
           >
             <UserPlus className="w-4 h-4" /> Invite
           </Link>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Settings } from 'lucide-react'
 import SignOutButton from './SignOutButton'
+import MobileNav from './MobileNav'
 import type { Profile } from '@/lib/types'
 
 const AGENT_LINKS = [
@@ -22,7 +23,9 @@ export default function Nav({ profile }: { profile: Profile }) {
           <span className="text-white font-serif text-2xl tracking-wide">LRE</span>
           <span className="text-amber-500 text-[10px] tracking-widest uppercase">Onboarding</span>
         </Link>
-        <div className="flex items-center gap-1 overflow-x-auto">
+
+        {/* Desktop / tablet inline links — hidden below sm */}
+        <div className="hidden sm:flex items-center gap-1 overflow-x-auto">
           {links.map(l => (
             <Link
               key={l.href}
@@ -33,7 +36,9 @@ export default function Nav({ profile }: { profile: Profile }) {
             </Link>
           ))}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+
+        {/* Desktop right-side actions — hidden below sm */}
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
           <Link
             href="/settings"
             className="text-gray-400 hover:text-amber-500 p-1.5 rounded-md hover:bg-gray-800/50 transition-colors"
@@ -43,6 +48,9 @@ export default function Nav({ profile }: { profile: Profile }) {
           </Link>
           <SignOutButton />
         </div>
+
+        {/* Mobile hamburger — shown only below sm */}
+        <MobileNav links={links} profile={profile} />
       </div>
     </nav>
   )

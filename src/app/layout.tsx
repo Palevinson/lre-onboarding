@@ -1,9 +1,23 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 
 export const metadata: Metadata = {
   title: 'LRE Onboarding',
   description: 'New agent onboarding portal for LRE Realty',
+  applicationName: 'LRE Onboarding',
+  appleWebApp: {
+    capable: true,
+    title: 'LRE Onboarding',
+    statusBarStyle: 'black-translucent',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#030712',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
