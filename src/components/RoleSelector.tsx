@@ -10,6 +10,7 @@ type Props = {
   targetEmail: string
   currentRole: UserRole
   isSelf: boolean
+  isLastAdmin: boolean
 }
 
 const ROLES: { value: UserRole; label: string; description: string }[] = [
@@ -18,7 +19,7 @@ const ROLES: { value: UserRole; label: string; description: string }[] = [
   { value: 'admin',   label: 'Admin',   description: 'Everything + content editor' },
 ]
 
-export default function RoleSelector({ targetProfileId, targetEmail, currentRole, isSelf }: Props) {
+export default function RoleSelector({ targetProfileId, targetEmail, currentRole, isSelf, isLastAdmin }: Props) {
   const router = useRouter()
   const [role, setRole] = useState<UserRole>(currentRole)
   const [, startTransition] = useTransition()
@@ -28,6 +29,12 @@ export default function RoleSelector({ targetProfileId, targetEmail, currentRole
 
   const change = async (next: UserRole) => {
     if (next === role || saving) return
+    if (isLastAdmin && next !== 'admin') {
+      alert(
+        'You can\'t demote the last admin. Promote another user to admin first, then you can change this role.'
+      )
+      return
+    }
     if (isSelf && next !== 'admin') {
       const ok = confirm(
         `You're about to change your OWN role from admin to ${next}. ` +
@@ -78,14 +85,19 @@ export default function RoleSelector({ targetProfileId, targetEmail, currentRole
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {ROLES.map(r => {
           const active = r.value === role
+          const isDemoteFromLastAdmin = isLastAdmin && r.value !== 'admin'
+          const disabled = saving || active || isDemoteFromLastAdmin
           return (
             <button
               key={r.value}
               onClick={() => change(r.value)}
-              disabled={saving || active}
+              disabled={disabled}
+              title={isDemoteFromLastAdmin ? 'Last admin — promote someone else first' : undefined}
               className={`text-left p-3 rounded-lg border transition-colors ${
                 active
                   ? 'bg-amber-500 text-black border-amber-500 cursor-default'
+                  : isDemoteFromLastAdmin
+                  ? 'bg-gray-800/30 text-gray-600 border-gray-800 cursor-not-allowed'
                   : 'bg-gray-800 text-gray-200 border-gray-700 hover:border-amber-500/60 disabled:opacity-50'
               }`}
             >
@@ -101,9 +113,17 @@ export default function RoleSelector({ targetProfileId, targetEmail, currentRole
         })}
       </div>
 
-      {isSelf && (
+      {isLastAdmin && (
+        <p className="text-[11px] text-amber-400 mt-3 flex items-start gap-1.5">
+          <span className="text-amber-500">🛡</span>
+          <span>
+            <strong>Protected:</strong> this is the last admin account. Promote another user to admin first to change this role.
+          </span>
+        </p>
+      )}
+      {!isLastAdmin && isSelf && (
         <p className="text-[11px] text-gray-500 mt-3">
-          You're editing your own account — be careful. There's no built-in safeguard against demoting the last admin.
+          You're editing your own account — demoting yourself takes effect immediately.
         </p>
       )}
     </div>

@@ -12,12 +12,13 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createClient()
 
-  const [profileRes, templatesRes, completionsRes, intakeRes, questionsRes] = await Promise.all([
+  const [profileRes, templatesRes, completionsRes, intakeRes, questionsRes, adminCountRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
     supabase.from('task_templates').select('*').order('sort_order'),
     supabase.from('task_completions').select('*').eq('profile_id', id),
     supabase.from('agent_intake').select('*').eq('profile_id', id).maybeSingle(),
     supabase.from('intake_questions').select('*').order('section').order('sort_order'),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin'),
   ])
 
   if (!profileRes.data) notFound()
@@ -26,6 +27,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const compMap = new Map((completionsRes.data ?? []).map((c: TaskCompletion) => [c.template_id, c.completed]))
   const intake = intakeRes.data as AgentIntake | null
   const questions = (questionsRes.data ?? []) as IntakeQuestion[]
+  const adminCount = adminCountRes.count ?? 0
 
   const agentTasks = templates.filter(t => t.audience === 'agent')
   const leadershipTasks = templates.filter(t => t.audience === 'leadership')
@@ -91,6 +93,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           targetEmail={profile.email}
           currentRole={profile.role}
           isSelf={profile.id === caller.id}
+          isLastAdmin={profile.role === 'admin' && adminCount <= 1}
         />
       )}
 
