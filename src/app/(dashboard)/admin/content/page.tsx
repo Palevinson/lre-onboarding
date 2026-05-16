@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, ClipboardList, Users, BookOpen, ChevronLeft } from 'lucide-react'
+import { ArrowRight, ClipboardList, Users, BookOpen, ChevronLeft, ClipboardEdit } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 
 export default async function ContentHubPage() {
@@ -10,6 +10,12 @@ export default async function ContentHubPage() {
       icon: <ClipboardList className="w-5 h-5" />,
       title: 'Welcome Week + Leadership Tasks',
       desc: 'Add, edit, reorder, or remove checklist items for new agents and leadership.',
+    },
+    {
+      href: '/admin/content/intake',
+      icon: <ClipboardEdit className="w-5 h-5" />,
+      title: 'Intake Form Questions',
+      desc: 'Add, edit, reorder, hide, or remove questions on the agent intake form.',
     },
     {
       href: '/admin/content/team',
@@ -37,7 +43,7 @@ export default async function ContentHubPage() {
           Changes go live immediately.
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {sections.map(s => (
           <Link
             key={s.href}

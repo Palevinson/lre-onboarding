@@ -1,25 +1,24 @@
 import { requireProfile } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import IntakeForm from '@/components/IntakeForm'
-import type { AgentIntake } from '@/lib/types'
+import type { AgentIntake, IntakeQuestion } from '@/lib/types'
 
 export default async function IntakePage() {
   const profile = await requireProfile()
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('agent_intake')
-    .select('*')
-    .eq('profile_id', profile.id)
-    .maybeSingle()
+
+  const [intakeRes, questionsRes] = await Promise.all([
+    supabase.from('agent_intake').select('*').eq('profile_id', profile.id).maybeSingle(),
+    supabase.from('intake_questions').select('*').eq('is_active', true).order('section').order('sort_order'),
+  ])
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
       <div>
         <p className="text-xs text-amber-500 uppercase tracking-widest mb-2">Onboarding</p>
-        <h1 className="text-3xl font-serif text-white">Intake Forms</h1>
+        <h1 className="text-3xl font-serif text-white">Intake Form</h1>
         <p className="text-gray-400 text-sm mt-2 max-w-2xl leading-relaxed">
-          The Agent Survey + Personal Info from your onboarding packet, all in one place.
-          Save anytime — you can keep editing after you submit.
+          So your brokerage can get to know you better. Save anytime — you can keep editing after you submit.
         </p>
       </div>
 
@@ -27,7 +26,8 @@ export default async function IntakePage() {
         profileId={profile.id}
         profileEmail={profile.email}
         profileFullName={profile.full_name}
-        initial={data as AgentIntake | null}
+        questions={(questionsRes.data ?? []) as IntakeQuestion[]}
+        initial={intakeRes.data as AgentIntake | null}
       />
     </div>
   )

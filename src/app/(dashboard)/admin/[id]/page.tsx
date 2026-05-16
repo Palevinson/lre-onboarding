@@ -5,18 +5,19 @@ import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import TaskItem from '@/components/TaskItem'
 import RoleSelector from '@/components/RoleSelector'
-import type { Profile, TaskTemplate, TaskCompletion, AgentIntake } from '@/lib/types'
+import type { Profile, TaskTemplate, TaskCompletion, AgentIntake, IntakeQuestion } from '@/lib/types'
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const caller = await requireRole(['manager', 'admin'])
   const { id } = await params
   const supabase = await createClient()
 
-  const [profileRes, templatesRes, completionsRes, intakeRes] = await Promise.all([
+  const [profileRes, templatesRes, completionsRes, intakeRes, questionsRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
     supabase.from('task_templates').select('*').order('sort_order'),
     supabase.from('task_completions').select('*').eq('profile_id', id),
     supabase.from('agent_intake').select('*').eq('profile_id', id).maybeSingle(),
+    supabase.from('intake_questions').select('*').order('section').order('sort_order'),
   ])
 
   if (!profileRes.data) notFound()
@@ -24,6 +25,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const templates = (templatesRes.data ?? []) as TaskTemplate[]
   const compMap = new Map((completionsRes.data ?? []).map((c: TaskCompletion) => [c.template_id, c.completed]))
   const intake = intakeRes.data as AgentIntake | null
+  const questions = (questionsRes.data ?? []) as IntakeQuestion[]
 
   const agentTasks = templates.filter(t => t.audience === 'agent')
   const leadershipTasks = templates.filter(t => t.audience === 'leadership')
@@ -122,7 +124,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       {intake && (
         <section>
           <h2 className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-3">Intake Submission</h2>
-          <IntakeView intake={intake} />
+          <IntakeView intake={intake} questions={questions} />
         </section>
       )}
     </div>
@@ -143,73 +145,38 @@ function ProgressTile({ label, pct, count }: { label: string; pct: number; count
   )
 }
 
-function IntakeView({ intake }: { intake: AgentIntake }) {
-  const sections: { title: string; fields: [string, string | number | boolean | null][] }[] = [
-    {
-      title: 'About Them',
-      fields: [
-        ['Birthday', intake.birthday],
-        ['Years as Realtor', intake.years_as_realtor],
-        ['Phone', intake.phone_number],
-        ['Three Words', intake.three_words],
-        ['Favorite Sonic Drink', intake.favorite_sonic_drink],
-        ['Family', intake.family_description],
-        ['Life Highlight', intake.life_highlight],
-        ['Favorite Restaurant', intake.favorite_restaurant],
-        ['Little-Known Fact', intake.little_known_fact],
-        ['Dream Destination', intake.dream_destination],
-        ['Favorite Thing About Real Estate', intake.favorite_part_re],
-      ],
-    },
-    {
-      title: 'Contact',
-      fields: [
-        ['Mailing Address', intake.mailing_address],
-        ['City', intake.city],
-        ['State', intake.state],
-        ['County', intake.county],
-        ['Zip', intake.zip],
-      ],
-    },
-    {
-      title: 'Personal',
-      fields: [
-        ['Gender', intake.gender],
-        ['Marital Status', intake.marital_status],
-        ['Business / LLC Name', intake.business_name],
-      ],
-    },
-    {
-      title: 'Emergency Contact',
-      fields: [
-        ['Name', intake.emergency_contact_name],
-        ['Relationship', intake.emergency_contact_relationship],
-        ['Phone', intake.emergency_contact_phone],
-      ],
-    },
-    {
-      title: 'Logistics',
-      fields: [
-        ['T-Shirt Size', intake.tshirt_size],
-        ['Recruited By', intake.recruited_by],
-        ['W9 Submitted to Dotloop', intake.w9_submitted ? 'Yes' : 'No'],
-      ],
-    },
-  ]
+function IntakeView({ intake, questions }: { intake: AgentIntake; questions: IntakeQuestion[] }) {
+  // Group questions by section, look up the agent's response for each
+  const sections = new Map<string, IntakeQuestion[]>()
+  questions
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .forEach(q => {
+      if (!sections.has(q.section)) sections.set(q.section, [])
+      sections.get(q.section)!.push(q)
+    })
+
+  const formatValue = (q: IntakeQuestion, value: unknown): string => {
+    if (value === null || value === undefined || value === '') return ''
+    if (q.field_type === 'checkbox') return value === true ? 'Yes' : 'No'
+    return String(value)
+  }
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800">
-      {sections.map(s => {
-        const filled = s.fields.filter(([, v]) => v !== null && v !== undefined && v !== '')
+      {Array.from(sections.entries()).map(([title, items]) => {
+        const filled = items
+          .map(q => ({ q, display: formatValue(q, intake.responses?.[q.id]) }))
+          .filter(({ display }) => display !== '')
         if (filled.length === 0) return null
         return (
-          <div key={s.title} className="p-5">
-            <h3 className="text-white text-sm font-semibold mb-3">{s.title}</h3>
+          <div key={title} className="p-5">
+            <h3 className="text-white text-sm font-semibold mb-3">{title}</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-              {filled.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-[10px] uppercase tracking-widest text-gray-500">{label}</dt>
-                  <dd className="text-sm text-gray-200 mt-0.5 whitespace-pre-wrap">{String(value)}</dd>
+              {filled.map(({ q, display }) => (
+                <div key={q.id}>
+                  <dt className="text-[10px] uppercase tracking-widest text-gray-500">{q.label}</dt>
+                  <dd className="text-sm text-gray-200 mt-0.5 whitespace-pre-wrap">{display}</dd>
                 </div>
               ))}
             </dl>

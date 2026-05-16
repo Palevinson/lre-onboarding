@@ -57,34 +57,28 @@ export type ReferenceDoc = {
   updated_at: string
 }
 
+export type IntakeFieldType = 'text' | 'textarea' | 'date' | 'number' | 'email' | 'phone' | 'select' | 'checkbox'
+
+export type IntakeQuestion = {
+  id: string
+  section: string
+  sort_order: number
+  label: string
+  help_text: string | null
+  field_type: IntakeFieldType
+  is_required: boolean
+  options: string[] | null
+  placeholder: string | null
+  is_active: boolean
+}
+
+export type IntakeResponseValue = string | number | boolean | null
+export type IntakeResponses = Record<string, IntakeResponseValue>
+
 export type AgentIntake = {
   id: string
   profile_id: string
-  birthday: string | null
-  three_words: string | null
-  favorite_sonic_drink: string | null
-  family_description: string | null
-  life_highlight: string | null
-  favorite_restaurant: string | null
-  little_known_fact: string | null
-  dream_destination: string | null
-  years_as_realtor: number | null
-  favorite_part_re: string | null
-  phone_number: string | null
-  mailing_address: string | null
-  city: string | null
-  state: string | null
-  county: string | null
-  zip: string | null
-  gender: string | null
-  marital_status: string | null
-  business_name: string | null
-  emergency_contact_name: string | null
-  emergency_contact_phone: string | null
-  emergency_contact_relationship: string | null
-  tshirt_size: string | null
-  recruited_by: string | null
-  w9_submitted: boolean
+  responses: IntakeResponses
   submitted_at: string | null
   updated_at: string
 }
