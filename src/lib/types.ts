@@ -23,6 +23,8 @@ export type TaskTemplate = {
   is_optional: boolean
   cost_note: string | null
   owner_hint: string | null
+  action_url: string | null
+  action_label: string | null
 }
 
 export type TaskCompletion = {

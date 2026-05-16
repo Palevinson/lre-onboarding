@@ -1,6 +1,6 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, ExternalLink, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { TaskTemplate } from '@/lib/types'
 
@@ -78,8 +78,35 @@ export default function TaskItem({ template, profileId, initialDone, readOnly }:
             {template.description}
           </p>
         )}
+        {template.action_url && (
+          <ActionButton url={template.action_url} label={template.action_label} done={done} />
+        )}
         {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
       </div>
     </div>
+  )
+}
+
+function ActionButton({ url, label, done }: { url: string; label: string | null; done: boolean }) {
+  const isMail = url.startsWith('mailto:')
+  const isInternal = url.startsWith('/')
+  const Icon = isMail ? Mail : ExternalLink
+  const text = label ?? (isMail ? 'Send email' : isInternal ? 'Open' : 'Open link')
+
+  return (
+    <a
+      href={url}
+      target={isMail || isInternal ? undefined : '_blank'}
+      rel={isMail || isInternal ? undefined : 'noopener noreferrer'}
+      onClick={e => e.stopPropagation()}
+      className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+        done
+          ? 'bg-gray-800/60 text-gray-500 hover:text-amber-500'
+          : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-black'
+      }`}
+    >
+      <Icon className="w-3 h-3" />
+      {text}
+    </a>
   )
 }

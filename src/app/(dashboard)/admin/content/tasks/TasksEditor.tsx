@@ -51,6 +51,8 @@ export default function TasksEditor({ initial }: { initial: TaskTemplate[] }) {
       cost_note: draft.cost_note?.trim() || null,
       owner_hint: draft.owner_hint?.trim() || null,
       sort_order: draft.sort_order ?? 100,
+      action_url: draft.action_url?.trim() || null,
+      action_label: draft.action_label?.trim() || null,
     }).select().single()
     if (error) { setError(error.message); return }
     setTasks(prev => [...prev, data as TaskTemplate])
@@ -108,6 +110,18 @@ export default function TasksEditor({ initial }: { initial: TaskTemplate[] }) {
             <Input placeholder="Sort order" type="number" value={draft.sort_order?.toString() ?? ''} onChange={v => setDraft(d => ({ ...d, sort_order: v ? Number(v) : 100 }))} />
             <Input placeholder="Owner (e.g. Kaylee)" value={draft.owner_hint ?? ''} onChange={v => setDraft(d => ({ ...d, owner_hint: v }))} />
             <Input placeholder="Cost note (e.g. $300/mo)" value={draft.cost_note ?? ''} onChange={v => setDraft(d => ({ ...d, cost_note: v }))} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[2fr,1fr] gap-2">
+            <Input
+              placeholder="Action URL (optional — https://..., mailto:..., or /path)"
+              value={draft.action_url ?? ''}
+              onChange={v => setDraft(d => ({ ...d, action_url: v }))}
+            />
+            <Input
+              placeholder="Button label (optional)"
+              value={draft.action_label ?? ''}
+              onChange={v => setDraft(d => ({ ...d, action_label: v }))}
+            />
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input type="checkbox" checked={draft.is_optional ?? false} onChange={e => setDraft(d => ({ ...d, is_optional: e.target.checked }))} className="accent-amber-500" />
@@ -177,6 +191,18 @@ function Row({
           <div className="grid grid-cols-2 gap-2">
             <Input placeholder="Owner hint" value={task.owner_hint ?? ''} onChange={v => onChange('owner_hint', v || null)} />
             <Input placeholder="Cost note" value={task.cost_note ?? ''} onChange={v => onChange('cost_note', v || null)} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[2fr,1fr] gap-2">
+            <Input
+              placeholder="Action URL (https://..., mailto:..., or /intake)"
+              value={task.action_url ?? ''}
+              onChange={v => onChange('action_url', v || null)}
+            />
+            <Input
+              placeholder="Button label (optional)"
+              value={task.action_label ?? ''}
+              onChange={v => onChange('action_label', v || null)}
+            />
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input
