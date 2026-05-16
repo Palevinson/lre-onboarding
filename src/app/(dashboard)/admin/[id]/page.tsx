@@ -4,10 +4,11 @@ import { ChevronLeft, Mail, Calendar, Check, AlertCircle } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import TaskItem from '@/components/TaskItem'
+import RoleSelector from '@/components/RoleSelector'
 import type { Profile, TaskTemplate, TaskCompletion, AgentIntake } from '@/lib/types'
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(['manager', 'admin'])
+  const caller = await requireRole(['manager', 'admin'])
   const { id } = await params
   const supabase = await createClient()
 
@@ -46,7 +47,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             {(profile.full_name ?? profile.email).split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-amber-500 uppercase tracking-widest mb-1">Agent</p>
+            <p className="text-xs text-amber-500 uppercase tracking-widest mb-1 capitalize">{profile.role}</p>
             <h1 className="text-3xl font-serif text-white">{profile.full_name ?? profile.email}</h1>
             <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-400">
               <a href={`mailto:${profile.email}`} className="inline-flex items-center hover:text-amber-500">
@@ -80,6 +81,16 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+
+      {/* Role selector — admins only */}
+      {caller.role === 'admin' && (
+        <RoleSelector
+          targetProfileId={profile.id}
+          targetEmail={profile.email}
+          currentRole={profile.role}
+          isSelf={profile.id === caller.id}
+        />
+      )}
 
       {/* Leadership To-Dos for this agent */}
       <section>

@@ -1,22 +1,22 @@
 import Link from 'next/link'
-import { ArrowRight, Users, ClipboardCheck, FileText, UserPlus, Settings } from 'lucide-react'
+import { ArrowRight, Users, ClipboardCheck, FileText, UserPlus, Settings, ShieldCheck } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import type { Profile, TaskTemplate, TaskCompletion } from '@/lib/types'
+import type { Profile, TaskTemplate, TaskCompletion, UserRole } from '@/lib/types'
 
 export default async function AdminRosterPage() {
   const caller = await requireRole(['manager', 'admin'])
   const supabase = await createClient()
 
-  // All agents + all task templates + all completions + intake submissions
-  const [agentsRes, templatesRes, completionsRes, intakeRes] = await Promise.all([
-    supabase.from('profiles').select('*').eq('role', 'agent').order('created_at', { ascending: false }),
+  // Everyone in the system — we'll group by role on render
+  const [profilesRes, templatesRes, completionsRes, intakeRes] = await Promise.all([
+    supabase.from('profiles').select('*').order('created_at', { ascending: false }),
     supabase.from('task_templates').select('*'),
     supabase.from('task_completions').select('*').eq('completed', true),
     supabase.from('agent_intake').select('profile_id, submitted_at').not('submitted_at', 'is', null),
   ])
 
-  const agents = (agentsRes.data ?? []) as Profile[]
+  const profiles = (profilesRes.data ?? []) as Profile[]
   const templates = (templatesRes.data ?? []) as TaskTemplate[]
   const completions = (completionsRes.data ?? []) as TaskCompletion[]
   const intakeSubmitted = new Set((intakeRes.data ?? []).map(r => r.profile_id))
@@ -26,23 +26,25 @@ export default async function AdminRosterPage() {
   const agentTemplateIds = new Set(templates.filter(t => t.audience === 'agent').map(t => t.id))
   const leadershipTemplateIds = new Set(templates.filter(t => t.audience === 'leadership').map(t => t.id))
 
-  const stats = agents.map(a => {
-    const ac = completions.filter(c => c.profile_id === a.id && agentTemplateIds.has(c.template_id)).length
-    const lc = completions.filter(c => c.profile_id === a.id && leadershipTemplateIds.has(c.template_id)).length
+  const buildStats = (p: Profile) => {
+    const ac = completions.filter(c => c.profile_id === p.id && agentTemplateIds.has(c.template_id)).length
+    const lc = completions.filter(c => c.profile_id === p.id && leadershipTemplateIds.has(c.template_id)).length
     return {
-      profile: a,
+      profile: p,
       agentPct: agentTemplateCount ? Math.round((ac / agentTemplateCount) * 100) : 0,
       leadershipPct: leadershipTemplateCount ? Math.round((lc / leadershipTemplateCount) * 100) : 0,
       agentDone: ac,
       leadershipDone: lc,
-      intakeSubmitted: intakeSubmitted.has(a.id),
+      intakeSubmitted: intakeSubmitted.has(p.id),
     }
-  })
+  }
 
-  // Roll-up numbers for the top stat tiles
+  const agents = profiles.filter(p => p.role === 'agent').map(buildStats)
+  const staff  = profiles.filter(p => p.role !== 'agent').map(buildStats)
+
   const totalAgents = agents.length
-  const totalSubmittedIntake = stats.filter(s => s.intakeSubmitted).length
-  const totalLeadershipPending = stats.reduce((sum, s) => sum + (leadershipTemplateCount - s.leadershipDone), 0)
+  const totalSubmittedIntake = agents.filter(s => s.intakeSubmitted).length
+  const totalLeadershipPending = agents.reduce((sum, s) => sum + (leadershipTemplateCount - s.leadershipDone), 0)
 
   return (
     <div className="space-y-8">
@@ -50,9 +52,9 @@ export default async function AdminRosterPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-xs text-amber-500 uppercase tracking-widest mb-2">Leadership</p>
-          <h1 className="text-3xl font-serif text-white">Agent Roster</h1>
+          <h1 className="text-3xl font-serif text-white">Roster</h1>
           <p className="text-gray-400 text-sm mt-2 max-w-2xl">
-            Every agent's progress at a glance. Click any agent to drill down and complete your Leadership To-Dos for them.
+            Click any person to drill in. Admins can change roles from the detail page.
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -68,7 +70,7 @@ export default async function AdminRosterPage() {
             href="/admin/invite"
             className="inline-flex items-center gap-2 bg-amber-500 text-black font-semibold py-2.5 px-4 rounded-lg text-sm hover:bg-amber-400"
           >
-            <UserPlus className="w-4 h-4" /> Invite Agent
+            <UserPlus className="w-4 h-4" /> Invite
           </Link>
         </div>
       </div>
@@ -80,17 +82,35 @@ export default async function AdminRosterPage() {
         <StatTile icon={<ClipboardCheck className="w-5 h-5" />} label="Leadership To-Dos Pending" value={totalLeadershipPending} />
       </div>
 
-      {/* Roster */}
-      {agents.length === 0 ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center">
-          <Users className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-          <h3 className="text-white text-sm font-semibold mb-1">No agents yet</h3>
-          <p className="text-gray-500 text-xs">When a new agent signs up at <code className="text-amber-500">/signup</code>, they'll appear here.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {stats.map(s => <RosterRow key={s.profile.id} {...s} />)}
-        </div>
+      {/* Agents */}
+      <section>
+        <h2 className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-3">
+          Agents <span className="text-gray-600">· {agents.length}</span>
+        </h2>
+        {agents.length === 0 ? (
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center">
+            <Users className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+            <h3 className="text-white text-sm font-semibold mb-1">No agents yet</h3>
+            <p className="text-gray-500 text-xs">Click <strong className="text-amber-500">Invite</strong> to create one, or have them sign up at <code className="text-amber-500">/signup</code>.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {agents.map(s => <AgentRow key={s.profile.id} {...s} />)}
+          </div>
+        )}
+      </section>
+
+      {/* Staff (managers + admins) */}
+      {staff.length > 0 && (
+        <section>
+          <h2 className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-3 flex items-center gap-2">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Staff <span className="text-gray-600">· {staff.length}</span>
+          </h2>
+          <div className="space-y-3">
+            {staff.map(s => <StaffRow key={s.profile.id} profile={s.profile} />)}
+          </div>
+        </section>
       )}
     </div>
   )
@@ -106,27 +126,22 @@ function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string
   )
 }
 
-function RosterRow({
+function AgentRow({
   profile, agentPct, leadershipPct, agentDone, leadershipDone, intakeSubmitted,
 }: {
   profile: Profile; agentPct: number; leadershipPct: number;
   agentDone: number; leadershipDone: number; intakeSubmitted: boolean
 }) {
-  const initials = (profile.full_name ?? profile.email)
-    .split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
-
   return (
     <Link
       href={`/admin/${profile.id}`}
       className="group flex items-center gap-4 bg-gray-900 border border-gray-800 hover:border-amber-500/40 rounded-xl p-4 transition-colors"
     >
-      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-black font-semibold flex items-center justify-center text-sm shrink-0">
-        {initials}
-      </div>
+      <Avatar profile={profile} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-white font-medium truncate">{profile.full_name ?? profile.email}</span>
-          {profile.full_name && <span className="text-xs text-gray-500 truncate">{profile.email}</span>}
+          {profile.full_name && <span className="text-xs text-gray-500 truncate hidden sm:inline">{profile.email}</span>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
           <ProgressMini label="Welcome Week" pct={agentPct} count={`${agentDone} done`} />
@@ -143,6 +158,50 @@ function RosterRow({
       </div>
       <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-amber-500 shrink-0 transition-colors" />
     </Link>
+  )
+}
+
+function StaffRow({ profile }: { profile: Profile }) {
+  return (
+    <Link
+      href={`/admin/${profile.id}`}
+      className="group flex items-center gap-4 bg-gray-900 border border-gray-800 hover:border-amber-500/40 rounded-xl p-4 transition-colors"
+    >
+      <Avatar profile={profile} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="text-white font-medium truncate">{profile.full_name ?? profile.email}</span>
+          <RoleBadge role={profile.role} />
+        </div>
+        {profile.full_name && (
+          <div className="text-xs text-gray-500 truncate mt-0.5">{profile.email}</div>
+        )}
+      </div>
+      <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-amber-500 shrink-0 transition-colors" />
+    </Link>
+  )
+}
+
+function Avatar({ profile }: { profile: Profile }) {
+  const initials = (profile.full_name ?? profile.email)
+    .split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+  return (
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-black font-semibold flex items-center justify-center text-sm shrink-0">
+      {initials}
+    </div>
+  )
+}
+
+function RoleBadge({ role }: { role: UserRole }) {
+  const styles: Record<UserRole, string> = {
+    agent:   'bg-gray-800 text-gray-300',
+    manager: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+    admin:   'bg-green-500/15 text-green-400 border border-green-500/30',
+  }
+  return (
+    <span className={`text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded ${styles[role]}`}>
+      {role}
+    </span>
   )
 }
 
