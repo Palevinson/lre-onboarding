@@ -44,6 +44,7 @@ export type TeamContact = {
   email: string | null
   office: string | null
   description: string
+  photo_url: string | null
   is_active: boolean
 }
 

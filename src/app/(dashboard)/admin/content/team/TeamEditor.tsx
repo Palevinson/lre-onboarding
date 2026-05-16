@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Loader2, AlertCircle, GripVertical, Eye, EyeOff } from 'lucide-react'
+import { Plus, Trash2, Loader2, AlertCircle, GripVertical, Eye, EyeOff, Camera, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { TeamContact } from '@/lib/types'
 
@@ -127,6 +127,10 @@ function Row({
           onChange={e => onChange('sort_order', Number(e.target.value))}
           className="w-14 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 shrink-0"
         />
+        <PhotoUploader
+          contact={contact}
+          onChange={url => onChange('photo_url', url)}
+        />
         <div className="flex-1 min-w-0">
           <input
             value={contact.name}
@@ -167,6 +171,84 @@ function Row({
             value={contact.description}
             onChange={v => onChange('description', v)}
           />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PhotoUploader({ contact, onChange }: { contact: TeamContact; onChange: (url: string | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+
+  const upload = async (file: File) => {
+    setError('')
+    if (!file.type.startsWith('image/')) { setError('Image files only'); return }
+    if (file.size > 5 * 1024 * 1024) { setError('Max 5 MB'); return }
+    setUploading(true)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const path = `${contact.id}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('team-photos').upload(path, file, { upsert: true })
+    if (upErr) { setError(upErr.message); setUploading(false); return }
+    const { data } = supabase.storage.from('team-photos').getPublicUrl(path)
+    onChange(data.publicUrl)
+    setUploading(false)
+  }
+
+  const removePhoto = async () => {
+    if (!contact.photo_url) return
+    if (!confirm('Remove this photo?')) return
+    onChange(null)
+  }
+
+  const initials = contact.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="group relative w-10 h-10 rounded-full overflow-hidden border border-gray-700 hover:border-amber-500 transition-colors"
+        title={contact.photo_url ? 'Change photo' : 'Upload photo'}
+      >
+        {contact.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={contact.photo_url} alt={contact.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-amber-500 to-amber-600 text-black flex items-center justify-center text-xs font-semibold">
+            {initials}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          {uploading ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" /> : <Camera className="w-3.5 h-3.5 text-white" />}
+        </div>
+      </button>
+      {contact.photo_url && (
+        <button
+          type="button"
+          onClick={removePhoto}
+          className="absolute -top-1 -right-1 bg-gray-900 border border-gray-700 hover:border-red-400 hover:text-red-400 text-gray-400 rounded-full w-4 h-4 flex items-center justify-center"
+          title="Remove photo"
+        >
+          <X className="w-2.5 h-2.5" />
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (file) upload(file)
+          e.target.value = ''
+        }}
+      />
+      {error && (
+        <div className="absolute top-full left-0 mt-1 z-10 bg-red-500/95 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
+          {error}
         </div>
       )}
     </div>
