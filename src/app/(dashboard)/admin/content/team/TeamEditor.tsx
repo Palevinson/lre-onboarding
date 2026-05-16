@@ -1,0 +1,197 @@
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Plus, Trash2, Loader2, AlertCircle, GripVertical, Eye, EyeOff } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import type { TeamContact } from '@/lib/types'
+
+type Draft = Partial<TeamContact>
+
+export default function TeamEditor({ initial }: { initial: TeamContact[] }) {
+  const router = useRouter()
+  const [contacts, setContacts] = useState<TeamContact[]>(initial)
+  const [error, setError] = useState('')
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState<Draft>({ sort_order: 100, is_active: true })
+
+  const refresh = () => router.refresh()
+
+  const updateField = async (id: string, field: keyof TeamContact, value: unknown) => {
+    setSavingId(id)
+    setError('')
+    setContacts(prev => prev.map(c => c.id === id ? { ...c, [field]: value } as TeamContact : c))
+    const supabase = createClient()
+    const { error } = await supabase.from('team_contacts').update({ [field]: value }).eq('id', id)
+    setSavingId(null)
+    if (error) { setError(error.message); refresh() }
+  }
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this contact?')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('team_contacts').delete().eq('id', id)
+    if (error) { setError(error.message); return }
+    setContacts(prev => prev.filter(c => c.id !== id))
+    refresh()
+  }
+
+  const add = async () => {
+    setError('')
+    if (!draft.name?.trim() || !draft.role?.trim() || !draft.description?.trim()) {
+      setError('Name, role, and description are required')
+      return
+    }
+    const supabase = createClient()
+    const { data, error } = await supabase.from('team_contacts').insert({
+      sort_order: draft.sort_order ?? 100,
+      name: draft.name!.trim(),
+      role: draft.role!.trim(),
+      email: draft.email?.trim() || null,
+      office: draft.office?.trim() || null,
+      description: draft.description!.trim(),
+      is_active: true,
+    }).select().single()
+    if (error) { setError(error.message); return }
+    setContacts(prev => [...prev, data as TeamContact])
+    setDraft({ sort_order: (draft.sort_order ?? 100) + 10, is_active: true })
+    setAdding(false)
+    refresh()
+  }
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {error}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {contacts.sort((a, b) => a.sort_order - b.sort_order).map(c => (
+          <Row
+            key={c.id}
+            contact={c}
+            saving={savingId === c.id}
+            onChange={(f, v) => updateField(c.id, f, v)}
+            onDelete={() => remove(c.id)}
+          />
+        ))}
+      </div>
+
+      {adding ? (
+        <div className="bg-gray-900 border-2 border-amber-500/40 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-white text-sm font-semibold">New Team Contact</h3>
+            <button onClick={() => setAdding(false)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+          </div>
+          <Input placeholder="Name (required)" value={draft.name ?? ''} onChange={v => setDraft(d => ({ ...d, name: v }))} />
+          <Input placeholder="Role / Title (required)" value={draft.role ?? ''} onChange={v => setDraft(d => ({ ...d, role: v }))} />
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Email" type="email" value={draft.email ?? ''} onChange={v => setDraft(d => ({ ...d, email: v }))} />
+            <Input placeholder="Office (e.g. Office 36)" value={draft.office ?? ''} onChange={v => setDraft(d => ({ ...d, office: v }))} />
+          </div>
+          <Textarea placeholder="What to contact them about (required)" value={draft.description ?? ''} onChange={v => setDraft(d => ({ ...d, description: v }))} />
+          <Input placeholder="Sort order" type="number" value={draft.sort_order?.toString() ?? ''} onChange={v => setDraft(d => ({ ...d, sort_order: v ? Number(v) : 100 }))} />
+          <button onClick={add} className="w-full bg-amber-500 text-black font-semibold py-2 rounded-lg text-sm hover:bg-amber-400">
+            Add Contact
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setAdding(true); setDraft({ sort_order: (contacts.at(-1)?.sort_order ?? 0) + 10, is_active: true }) }}
+          className="w-full bg-gray-900 border-2 border-dashed border-gray-700 hover:border-amber-500/50 hover:text-amber-500 text-gray-400 rounded-xl p-4 text-sm font-medium inline-flex items-center justify-center gap-2 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Add Contact
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Row({
+  contact, saving, onChange, onDelete,
+}: {
+  contact: TeamContact; saving: boolean;
+  onChange: (field: keyof TeamContact, value: unknown) => void;
+  onDelete: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className={`bg-gray-900 border border-gray-800 rounded-xl ${!contact.is_active ? 'opacity-60' : ''}`}>
+      <div className="flex items-start gap-2 p-3">
+        <GripVertical className="w-4 h-4 text-gray-700 mt-2 shrink-0" />
+        <input
+          type="number"
+          value={contact.sort_order}
+          onChange={e => onChange('sort_order', Number(e.target.value))}
+          className="w-14 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 shrink-0"
+        />
+        <div className="flex-1 min-w-0">
+          <input
+            value={contact.name}
+            onChange={e => onChange('name', e.target.value)}
+            className="w-full bg-transparent text-sm text-white font-medium border-0 px-0 py-0.5 focus:outline-none"
+          />
+          <input
+            value={contact.role}
+            onChange={e => onChange('role', e.target.value)}
+            className="w-full bg-transparent text-xs text-amber-500 uppercase tracking-wider border-0 px-0 py-0.5 focus:outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {saving && <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />}
+          <button
+            onClick={() => onChange('is_active', !contact.is_active)}
+            className="text-gray-500 hover:text-amber-500 p-1 rounded"
+            title={contact.is_active ? 'Deactivate' : 'Activate'}
+          >
+            {contact.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={() => setExpanded(e => !e)} className="text-[11px] text-gray-400 hover:text-amber-500 px-2 py-1 rounded">
+            {expanded ? 'Hide' : 'Details'}
+          </button>
+          <button onClick={onDelete} className="text-gray-500 hover:text-red-400 p-1 rounded">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="border-t border-gray-800 p-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Email" type="email" value={contact.email ?? ''} onChange={v => onChange('email', v || null)} />
+            <Input placeholder="Office" value={contact.office ?? ''} onChange={v => onChange('office', v || null)} />
+          </div>
+          <Textarea
+            placeholder="Description"
+            value={contact.description}
+            onChange={v => onChange('description', v)}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Input({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-amber-500 outline-none"
+    />
+  )
+}
+function Textarea({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <textarea
+      placeholder={placeholder}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      rows={2}
+      className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-amber-500 outline-none resize-y"
+    />
+  )
+}

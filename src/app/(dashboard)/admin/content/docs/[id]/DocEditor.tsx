@@ -1,0 +1,245 @@
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2, AlertCircle, Check, Trash2, Eye, Pencil } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import type { ReferenceDoc } from '@/lib/types'
+
+const CATEGORIES = ['compensation', 'services', 'process', 'checklist']
+
+export default function DocEditor({ initial }: { initial: ReferenceDoc | null }) {
+  const router = useRouter()
+  const isNew = !initial
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [slug, setSlug] = useState(initial?.slug ?? '')
+  const [category, setCategory] = useState(initial?.category ?? 'process')
+  const [sortOrder, setSortOrder] = useState(initial?.sort_order ?? 100)
+  const [content, setContent] = useState(initial?.content ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [justSaved, setJustSaved] = useState(false)
+  const [tab, setTab] = useState<'edit' | 'preview'>('edit')
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    const supabase = createClient()
+    if (isNew) {
+      if (!title.trim() || !slug.trim() || !content.trim()) {
+        setError('Title, slug, and content are required')
+        setSaving(false); return
+      }
+      const { data, error } = await supabase.from('reference_docs').insert({
+        title: title.trim(),
+        slug: slug.trim(),
+        category,
+        sort_order: sortOrder,
+        content,
+      }).select().single()
+      setSaving(false)
+      if (error) { setError(error.message); return }
+      router.push(`/admin/content/docs/${(data as ReferenceDoc).id}`)
+    } else {
+      const { error } = await supabase.from('reference_docs').update({
+        title: title.trim(),
+        slug: slug.trim(),
+        category,
+        sort_order: sortOrder,
+        content,
+        updated_at: new Date().toISOString(),
+      }).eq('id', initial!.id)
+      setSaving(false)
+      if (error) { setError(error.message); return }
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 2500)
+      router.refresh()
+    }
+  }
+
+  const remove = async () => {
+    if (!initial) return
+    if (!confirm(`Delete "${initial.title}"? This cannot be undone.`)) return
+    const supabase = createClient()
+    const { error } = await supabase.from('reference_docs').delete().eq('id', initial.id)
+    if (error) { setError(error.message); return }
+    router.push('/admin/content/docs')
+  }
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {error}
+        </div>
+      )}
+      {justSaved && (
+        <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2">
+          <Check className="w-4 h-4" /> Saved
+        </div>
+      )}
+
+      {/* Metadata */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Title">
+            <Input value={title} onChange={setTitle} />
+          </Field>
+          <Field label="Slug (URL path)">
+            <Input value={slug} onChange={setSlug} placeholder="e.g. compensation" />
+          </Field>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Category">
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors capitalize ${
+                    category === c
+                      ? 'bg-amber-500 text-black border-amber-500 font-semibold'
+                      : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-600'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Sort order">
+            <Input type="number" value={String(sortOrder)} onChange={v => setSortOrder(Number(v) || 100)} />
+          </Field>
+        </div>
+      </div>
+
+      {/* Edit / Preview tabs */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl">
+        <div className="flex items-center justify-between border-b border-gray-800 px-3 py-2">
+          <div className="inline-flex bg-gray-800/50 rounded-lg p-1">
+            <TabBtn active={tab === 'edit'} onClick={() => setTab('edit')} icon={<Pencil className="w-3 h-3" />}>Edit</TabBtn>
+            <TabBtn active={tab === 'preview'} onClick={() => setTab('preview')} icon={<Eye className="w-3 h-3" />}>Preview</TabBtn>
+          </div>
+          <span className="text-[10px] text-gray-500">Markdown — ## H2, ### H3, **bold**, - bullets, &gt; quote</span>
+        </div>
+        {tab === 'edit' ? (
+          <textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            rows={20}
+            className="w-full bg-transparent text-white px-4 py-3 text-sm focus:outline-none resize-y font-mono leading-relaxed"
+            placeholder="## Section Heading&#10;&#10;Paragraph text…&#10;&#10;- Bullet item&#10;- Another bullet"
+          />
+        ) : (
+          <div className="px-4 py-3 min-h-[300px]">{renderMarkdown(content)}</div>
+        )}
+      </div>
+
+      {/* Footer actions */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          {!isNew && (
+            <button
+              onClick={remove}
+              className="inline-flex items-center gap-2 text-red-400 hover:text-red-300 text-sm font-medium py-2 px-3 rounded-lg hover:bg-red-500/5"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          )}
+        </div>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="bg-amber-500 text-black font-semibold py-2.5 px-6 rounded-lg text-sm hover:bg-amber-400 disabled:opacity-50 inline-flex items-center gap-2"
+        >
+          {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : (isNew ? 'Create Document' : 'Save Changes')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// === UI primitives ===
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs text-gray-400 uppercase tracking-widest block mb-1.5">{label}</label>
+      {children}
+    </div>
+  )
+}
+function Input({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-amber-500 outline-none"
+    />
+  )
+}
+function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-colors ${
+        active ? 'bg-amber-500 text-black' : 'text-gray-400 hover:text-white'
+      }`}
+    >
+      {icon} {children}
+    </button>
+  )
+}
+
+// === Markdown renderer (matches what agents see) ===
+function renderMarkdown(md: string): React.ReactNode[] {
+  if (!md.trim()) return [<p key="empty" className="text-gray-500 text-sm italic">Nothing to preview yet.</p>]
+  const lines = md.split('\n')
+  const nodes: React.ReactNode[] = []
+  let listBuffer: string[] = []
+  const flushList = () => {
+    if (!listBuffer.length) return
+    nodes.push(
+      <ul key={nodes.length} className="list-disc list-outside ml-5 space-y-1 my-3 text-gray-300">
+        {listBuffer.map((item, i) => <li key={i} dangerouslySetInnerHTML={{ __html: inline(item) }} />)}
+      </ul>
+    )
+    listBuffer = []
+  }
+  const inline = (s: string) =>
+    s
+      .replace(/`([^`]+)`/g, '<code class="bg-gray-800 text-amber-300 rounded px-1.5 py-0.5 text-xs">$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em class="italic">$1</em>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a class="text-amber-500 hover:underline" href="$2">$1</a>')
+
+  for (const raw of lines) {
+    const line = raw.trimEnd()
+    if (!line.trim()) { flushList(); continue }
+    if (line.startsWith('### ')) {
+      flushList()
+      nodes.push(<h3 key={nodes.length} className="text-white text-base font-semibold mt-5 mb-2">{line.slice(4)}</h3>)
+    } else if (line.startsWith('## ')) {
+      flushList()
+      nodes.push(<h2 key={nodes.length} className="text-amber-500 text-xs uppercase tracking-widest font-semibold mt-6 mb-3">{line.slice(3)}</h2>)
+    } else if (line.startsWith('- ')) {
+      listBuffer.push(line.slice(2))
+    } else if (line.startsWith('> ')) {
+      flushList()
+      nodes.push(
+        <blockquote key={nodes.length} className="border-l-2 border-amber-500/60 pl-4 my-4 text-amber-100/80 italic">
+          <span dangerouslySetInnerHTML={{ __html: inline(line.slice(2)) }} />
+        </blockquote>
+      )
+    } else {
+      flushList()
+      nodes.push(
+        <p key={nodes.length} className="text-gray-300 text-sm leading-relaxed my-3"
+           dangerouslySetInnerHTML={{ __html: inline(line) }} />
+      )
+    }
+  }
+  flushList()
+  return nodes
+}
