@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Loader2, Check, AlertCircle, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Loader2, AlertCircle, GripVertical, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { TaskTemplate, TaskAudience } from '@/lib/types'
+import type { TaskTemplate, TaskAudience, TaskAction } from '@/lib/types'
 
 type Draft = Partial<TaskTemplate>
 
@@ -51,8 +51,7 @@ export default function TasksEditor({ initial }: { initial: TaskTemplate[] }) {
       cost_note: draft.cost_note?.trim() || null,
       owner_hint: draft.owner_hint?.trim() || null,
       sort_order: draft.sort_order ?? 100,
-      action_url: draft.action_url?.trim() || null,
-      action_label: draft.action_label?.trim() || null,
+      actions: (draft.actions ?? []).filter(a => a.url.trim()),
     }).select().single()
     if (error) { setError(error.message); return }
     setTasks(prev => [...prev, data as TaskTemplate])
@@ -111,16 +110,11 @@ export default function TasksEditor({ initial }: { initial: TaskTemplate[] }) {
             <Input placeholder="Owner (e.g. Kaylee)" value={draft.owner_hint ?? ''} onChange={v => setDraft(d => ({ ...d, owner_hint: v }))} />
             <Input placeholder="Cost note (e.g. $300/mo)" value={draft.cost_note ?? ''} onChange={v => setDraft(d => ({ ...d, cost_note: v }))} />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-[2fr,1fr] gap-2">
-            <Input
-              placeholder="Action URL (optional — https://..., mailto:..., or /path)"
-              value={draft.action_url ?? ''}
-              onChange={v => setDraft(d => ({ ...d, action_url: v }))}
-            />
-            <Input
-              placeholder="Button label (optional)"
-              value={draft.action_label ?? ''}
-              onChange={v => setDraft(d => ({ ...d, action_label: v }))}
+          <div>
+            <label className="text-xs text-gray-400 uppercase tracking-widest block mb-1.5">Action Buttons</label>
+            <ActionsEditor
+              actions={draft.actions ?? []}
+              onChange={a => setDraft(d => ({ ...d, actions: a }))}
             />
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -192,16 +186,11 @@ function Row({
             <Input placeholder="Owner hint" value={task.owner_hint ?? ''} onChange={v => onChange('owner_hint', v || null)} />
             <Input placeholder="Cost note" value={task.cost_note ?? ''} onChange={v => onChange('cost_note', v || null)} />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-[2fr,1fr] gap-2">
-            <Input
-              placeholder="Action URL (https://..., mailto:..., or /intake)"
-              value={task.action_url ?? ''}
-              onChange={v => onChange('action_url', v || null)}
-            />
-            <Input
-              placeholder="Button label (optional)"
-              value={task.action_label ?? ''}
-              onChange={v => onChange('action_label', v || null)}
+          <div>
+            <label className="text-xs text-gray-400 uppercase tracking-widest block mb-1.5">Action Buttons</label>
+            <ActionsEditor
+              actions={task.actions ?? []}
+              onChange={a => onChange('actions', a)}
             />
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -215,6 +204,53 @@ function Row({
           </label>
         </div>
       )}
+    </div>
+  )
+}
+
+function ActionsEditor({ actions, onChange }: { actions: TaskAction[]; onChange: (a: TaskAction[]) => void }) {
+  const update = (i: number, patch: Partial<TaskAction>) => {
+    onChange(actions.map((a, idx) => idx === i ? { ...a, ...patch } : a))
+  }
+  const remove = (i: number) => onChange(actions.filter((_, idx) => idx !== i))
+  const add = () => onChange([...actions, { url: '', label: '' }])
+
+  return (
+    <div className="space-y-2">
+      {actions.length === 0 && (
+        <p className="text-[11px] text-gray-500 italic">No action buttons. Agents will just see the checkbox.</p>
+      )}
+      {actions.map((a, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="grid grid-cols-[2fr,1fr] gap-2 flex-1">
+            <Input
+              placeholder="URL (https://..., mailto:..., or /path)"
+              value={a.url}
+              onChange={v => update(i, { url: v })}
+            />
+            <Input
+              placeholder="Button label"
+              value={a.label}
+              onChange={v => update(i, { label: v })}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="text-gray-500 hover:text-red-400 p-1 rounded"
+            title="Remove action"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="text-xs text-amber-500 hover:underline inline-flex items-center gap-1"
+      >
+        <Plus className="w-3 h-3" /> Add another button
+      </button>
     </div>
   )
 }

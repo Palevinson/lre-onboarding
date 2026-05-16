@@ -78,8 +78,12 @@ export default function TaskItem({ template, profileId, initialDone, readOnly }:
             {template.description}
           </p>
         )}
-        {template.action_url && (
-          <ActionButton url={template.action_url} label={template.action_label} done={done} />
+        {template.actions && template.actions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {template.actions.map((a, i) => (
+              <ActionButton key={i} url={a.url} label={a.label} done={done} />
+            ))}
+          </div>
         )}
         {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
       </div>
@@ -87,11 +91,11 @@ export default function TaskItem({ template, profileId, initialDone, readOnly }:
   )
 }
 
-function ActionButton({ url, label, done }: { url: string; label: string | null; done: boolean }) {
+function ActionButton({ url, label, done }: { url: string; label: string; done: boolean }) {
   const isMail = url.startsWith('mailto:')
   const isInternal = url.startsWith('/')
   const Icon = isMail ? Mail : ExternalLink
-  const text = label ?? (isMail ? 'Send email' : isInternal ? 'Open' : 'Open link')
+  const text = label || (isMail ? 'Send email' : isInternal ? 'Open' : 'Open link')
 
   return (
     <a
@@ -99,7 +103,7 @@ function ActionButton({ url, label, done }: { url: string; label: string | null;
       target={isMail || isInternal ? undefined : '_blank'}
       rel={isMail || isInternal ? undefined : 'noopener noreferrer'}
       onClick={e => e.stopPropagation()}
-      className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
         done
           ? 'bg-gray-800/60 text-gray-500 hover:text-amber-500'
           : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-black'

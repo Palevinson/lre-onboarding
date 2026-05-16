@@ -14,6 +14,11 @@ export type Profile = {
   updated_at: string
 }
 
+export type TaskAction = {
+  url: string
+  label: string
+}
+
 export type TaskTemplate = {
   id: string
   audience: TaskAudience
@@ -23,8 +28,7 @@ export type TaskTemplate = {
   is_optional: boolean
   cost_note: string | null
   owner_hint: string | null
-  action_url: string | null
-  action_label: string | null
+  actions: TaskAction[]
 }
 
 export type TaskCompletion = {
