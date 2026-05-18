@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight, Users, ClipboardCheck, FileText, UserPlus, Settings, ShieldCheck } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { getHeadshotUrls } from '@/lib/headshots'
 import type { Profile, TaskTemplate, TaskCompletion, UserRole } from '@/lib/types'
 
 export default async function AdminRosterPage() {
@@ -21,6 +22,9 @@ export default async function AdminRosterPage() {
   const completions = (completionsRes.data ?? []) as TaskCompletion[]
   const intakeSubmitted = new Set((intakeRes.data ?? []).map(r => r.profile_id))
 
+  // Headshots (signed URLs) for everyone in one batched call
+  const headshotUrls = await getHeadshotUrls(supabase, profiles.map(p => p.id))
+
   const agentTemplateCount = templates.filter(t => t.audience === 'agent').length
   const leadershipTemplateCount = templates.filter(t => t.audience === 'leadership').length
   const agentTemplateIds = new Set(templates.filter(t => t.audience === 'agent').map(t => t.id))
@@ -36,6 +40,7 @@ export default async function AdminRosterPage() {
       agentDone: ac,
       leadershipDone: lc,
       intakeSubmitted: intakeSubmitted.has(p.id),
+      headshotUrl: headshotUrls.get(p.id) ?? null,
     }
   }
 
@@ -108,7 +113,7 @@ export default async function AdminRosterPage() {
             Staff <span className="text-gray-600">· {staff.length}</span>
           </h2>
           <div className="space-y-3">
-            {staff.map(s => <StaffRow key={s.profile.id} profile={s.profile} />)}
+            {staff.map(s => <StaffRow key={s.profile.id} profile={s.profile} headshotUrl={s.headshotUrl} />)}
           </div>
         </section>
       )}
@@ -127,17 +132,18 @@ function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 function AgentRow({
-  profile, agentPct, leadershipPct, agentDone, leadershipDone, intakeSubmitted,
+  profile, agentPct, leadershipPct, agentDone, leadershipDone, intakeSubmitted, headshotUrl,
 }: {
   profile: Profile; agentPct: number; leadershipPct: number;
-  agentDone: number; leadershipDone: number; intakeSubmitted: boolean
+  agentDone: number; leadershipDone: number; intakeSubmitted: boolean;
+  headshotUrl: string | null
 }) {
   return (
     <Link
       href={`/admin/${profile.id}`}
       className="group flex items-center gap-4 bg-gray-900 border border-gray-800 hover:border-amber-500/40 rounded-xl p-4 transition-colors"
     >
-      <Avatar profile={profile} />
+      <Avatar profile={profile} headshotUrl={headshotUrl} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-white font-medium truncate">{profile.full_name ?? profile.email}</span>
@@ -161,13 +167,13 @@ function AgentRow({
   )
 }
 
-function StaffRow({ profile }: { profile: Profile }) {
+function StaffRow({ profile, headshotUrl }: { profile: Profile; headshotUrl: string | null }) {
   return (
     <Link
       href={`/admin/${profile.id}`}
       className="group flex items-center gap-4 bg-gray-900 border border-gray-800 hover:border-amber-500/40 rounded-xl p-4 transition-colors"
     >
-      <Avatar profile={profile} />
+      <Avatar profile={profile} headshotUrl={headshotUrl} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <span className="text-white font-medium truncate">{profile.full_name ?? profile.email}</span>
@@ -182,7 +188,17 @@ function StaffRow({ profile }: { profile: Profile }) {
   )
 }
 
-function Avatar({ profile }: { profile: Profile }) {
+function Avatar({ profile, headshotUrl }: { profile: Profile; headshotUrl: string | null }) {
+  if (headshotUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={headshotUrl}
+        alt={profile.full_name ?? profile.email}
+        className="w-10 h-10 rounded-full object-cover border border-gray-800 shrink-0"
+      />
+    )
+  }
   const initials = (profile.full_name ?? profile.email)
     .split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
   return (

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ChevronLeft, Mail, Calendar, Check, AlertCircle } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { getHeadshotUrls } from '@/lib/headshots'
 import TaskItem from '@/components/TaskItem'
 import RoleSelector from '@/components/RoleSelector'
 import type { Profile, TaskTemplate, TaskCompletion, AgentIntake, IntakeQuestion } from '@/lib/types'
@@ -29,6 +30,8 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const intake = intakeRes.data as AgentIntake | null
   const questions = (questionsRes.data ?? []) as IntakeQuestion[]
   const adminCount = adminCountRes.count ?? 0
+  const headshotUrls = await getHeadshotUrls(supabase, [profile.id])
+  const headshotUrl = headshotUrls.get(profile.id) ?? null
 
   const agentTasks = templates.filter(t => t.audience === 'agent')
   const leadershipTasks = templates.filter(t => t.audience === 'leadership')
@@ -48,9 +51,18 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       {/* Profile header */}
       <div className="bg-gradient-to-br from-gray-900 to-gray-900/40 border border-gray-800 rounded-2xl p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-black font-semibold flex items-center justify-center text-xl shrink-0">
-            {(profile.full_name ?? profile.email).split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()}
-          </div>
+          {headshotUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={headshotUrl}
+              alt={profile.full_name ?? profile.email}
+              className="w-16 h-16 rounded-full object-cover border border-gray-800 shrink-0"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-black font-semibold flex items-center justify-center text-xl shrink-0">
+              {(profile.full_name ?? profile.email).split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-xs text-amber-500 uppercase tracking-widest mb-1 capitalize">{profile.role}</p>
             <h1 className="text-3xl font-serif text-white">{profile.full_name ?? profile.email}</h1>

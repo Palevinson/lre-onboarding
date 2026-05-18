@@ -31,6 +31,7 @@ export type TaskTemplate = {
   actions: TaskAction[]
   allow_upload: boolean
   upload_label: string | null
+  kind: string | null   // 'headshot' etc — special-cases
 }
 
 export type TaskCompletion = {
