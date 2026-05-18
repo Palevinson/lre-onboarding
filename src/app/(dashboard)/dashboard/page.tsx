@@ -66,15 +66,6 @@ export default async function DashboardPage() {
           subtitle="Who to contact for what"
         />
       </div>
-
-      {/* Tuesday cadence reminder */}
-      <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-5">
-        <p className="text-xs text-amber-500 uppercase tracking-widest font-semibold mb-2">Tuesday Cadence</p>
-        <p className="text-gray-300 text-sm">
-          <strong>11:00 AM</strong> — Trainings: Lofty, Contract, Dotloop, MLS<br />
-          <strong>2:00 PM</strong> — Welcome Week onboarding session
-        </p>
-      </div>
     </div>
   )
 }
