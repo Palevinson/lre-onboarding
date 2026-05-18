@@ -29,6 +29,8 @@ export type TaskTemplate = {
   cost_note: string | null
   owner_hint: string | null
   actions: TaskAction[]
+  allow_upload: boolean
+  upload_label: string | null
 }
 
 export type TaskCompletion = {
@@ -40,6 +42,9 @@ export type TaskCompletion = {
   completed_by: string | null
   note: string | null
   updated_at: string
+  upload_path: string | null
+  upload_filename: string | null
+  upload_uploaded_at: string | null
 }
 
 export type TeamContact = {

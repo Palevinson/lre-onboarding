@@ -193,6 +193,24 @@ function Row({
               onChange={a => onChange('actions', a)}
             />
           </div>
+          <div className="space-y-2">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={task.allow_upload}
+                onChange={e => onChange('allow_upload', e.target.checked)}
+                className="accent-amber-500"
+              />
+              Allow file upload (photo or PDF)
+            </label>
+            {task.allow_upload && (
+              <Input
+                placeholder="Upload button label (e.g. Upload proof of submission)"
+                value={task.upload_label ?? ''}
+                onChange={v => onChange('upload_label', v || null)}
+              />
+            )}
+          </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input
               type="checkbox"

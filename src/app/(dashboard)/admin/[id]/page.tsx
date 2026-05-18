@@ -24,7 +24,8 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   if (!profileRes.data) notFound()
   const profile = profileRes.data as Profile
   const templates = (templatesRes.data ?? []) as TaskTemplate[]
-  const compMap = new Map((completionsRes.data ?? []).map((c: TaskCompletion) => [c.template_id, c.completed]))
+  const compArr = (completionsRes.data ?? []) as TaskCompletion[]
+  const compMap = new Map(compArr.map(c => [c.template_id, c]))
   const intake = intakeRes.data as AgentIntake | null
   const questions = (questionsRes.data ?? []) as IntakeQuestion[]
   const adminCount = adminCountRes.count ?? 0
@@ -32,9 +33,9 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const agentTasks = templates.filter(t => t.audience === 'agent')
   const leadershipTasks = templates.filter(t => t.audience === 'leadership')
 
-  const agentDone = agentTasks.filter(t => compMap.get(t.id)).length
+  const agentDone = agentTasks.filter(t => compMap.get(t.id)?.completed).length
   const agentPct = agentTasks.length ? Math.round((agentDone / agentTasks.length) * 100) : 0
-  const leadershipDone = leadershipTasks.filter(t => compMap.get(t.id)).length
+  const leadershipDone = leadershipTasks.filter(t => compMap.get(t.id)?.completed).length
   const leadershipPct = leadershipTasks.length ? Math.round((leadershipDone / leadershipTasks.length) * 100) : 0
 
   return (
@@ -104,9 +105,19 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           <span className="text-xs text-gray-500">{leadershipDone} / {leadershipTasks.length} done</span>
         </div>
         <div className="space-y-2">
-          {leadershipTasks.map(t => (
-            <TaskItem key={t.id} template={t} profileId={profile.id} initialDone={!!compMap.get(t.id)} />
-          ))}
+          {leadershipTasks.map(t => {
+            const c = compMap.get(t.id)
+            return (
+              <TaskItem
+                key={t.id}
+                template={t}
+                profileId={profile.id}
+                initialDone={!!c?.completed}
+                initialUploadPath={c?.upload_path ?? null}
+                initialUploadFilename={c?.upload_filename ?? null}
+              />
+            )
+          })}
         </div>
       </section>
 
@@ -117,9 +128,20 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           <span className="text-xs text-gray-500">{agentDone} / {agentTasks.length} done</span>
         </div>
         <div className="space-y-2">
-          {agentTasks.map(t => (
-            <TaskItem key={t.id} template={t} profileId={profile.id} initialDone={!!compMap.get(t.id)} readOnly />
-          ))}
+          {agentTasks.map(t => {
+            const c = compMap.get(t.id)
+            return (
+              <TaskItem
+                key={t.id}
+                template={t}
+                profileId={profile.id}
+                initialDone={!!c?.completed}
+                initialUploadPath={c?.upload_path ?? null}
+                initialUploadFilename={c?.upload_filename ?? null}
+                readOnly
+              />
+            )
+          })}
         </div>
       </section>
 

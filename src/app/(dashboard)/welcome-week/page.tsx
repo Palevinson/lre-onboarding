@@ -14,8 +14,9 @@ export default async function WelcomeWeekPage() {
   ])
 
   const tasks = (templates ?? []) as TaskTemplate[]
-  const compMap = new Map((completions ?? []).map((c: TaskCompletion) => [c.template_id, c.completed]))
-  const doneCount = tasks.filter(t => compMap.get(t.id)).length
+  const compArr = (completions ?? []) as TaskCompletion[]
+  const compMap = new Map(compArr.map(c => [c.template_id, c]))
+  const doneCount = tasks.filter(t => compMap.get(t.id)?.completed).length
   const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0
 
   const required = tasks.filter(t => !t.is_optional)
@@ -48,20 +49,25 @@ export default async function WelcomeWeekPage() {
 function Section({
   title, tasks, profileId, compMap,
 }: {
-  title: string; tasks: TaskTemplate[]; profileId: string; compMap: Map<string, boolean>
+  title: string; tasks: TaskTemplate[]; profileId: string; compMap: Map<string, TaskCompletion>
 }) {
   return (
     <div>
       <h2 className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-3">{title}</h2>
       <div className="space-y-2">
-        {tasks.map(t => (
-          <TaskItem
-            key={t.id}
-            template={t}
-            profileId={profileId}
-            initialDone={!!compMap.get(t.id)}
-          />
-        ))}
+        {tasks.map(t => {
+          const c = compMap.get(t.id)
+          return (
+            <TaskItem
+              key={t.id}
+              template={t}
+              profileId={profileId}
+              initialDone={!!c?.completed}
+              initialUploadPath={c?.upload_path ?? null}
+              initialUploadFilename={c?.upload_filename ?? null}
+            />
+          )
+        })}
       </div>
     </div>
   )
