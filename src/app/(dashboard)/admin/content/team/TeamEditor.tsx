@@ -162,6 +162,7 @@ function Row({
       </div>
       {expanded && (
         <div className="border-t border-gray-800 p-3 space-y-3">
+          <PhotoPicker contact={contact} onChange={url => onChange('photo_url', url)} />
           <div className="grid grid-cols-2 gap-2">
             <Input placeholder="Email" type="email" value={contact.email ?? ''} onChange={v => onChange('email', v || null)} />
             <Input placeholder="Office" value={contact.office ?? ''} onChange={v => onChange('office', v || null)} />
@@ -173,6 +174,89 @@ function Row({
           />
         </div>
       )}
+    </div>
+  )
+}
+
+function PhotoPicker({ contact, onChange }: { contact: TeamContact; onChange: (url: string | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+
+  const upload = async (file: File) => {
+    setError('')
+    if (!file.type.startsWith('image/')) { setError('Image files only'); return }
+    if (file.size > 5 * 1024 * 1024) { setError('Max 5 MB'); return }
+    setUploading(true)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const path = `${contact.id}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('team-photos').upload(path, file, { upsert: true })
+    if (upErr) { setError(upErr.message); setUploading(false); return }
+    const { data } = supabase.storage.from('team-photos').getPublicUrl(path)
+    onChange(data.publicUrl)
+    setUploading(false)
+  }
+
+  const removePhoto = async () => {
+    if (!contact.photo_url) return
+    if (!confirm('Remove this photo?')) return
+    onChange(null)
+  }
+
+  const initials = contact.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+
+  return (
+    <div>
+      <label className="text-xs text-gray-400 uppercase tracking-widest block mb-2">Photo</label>
+      <div className="flex items-center gap-4">
+        {contact.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={contact.photo_url}
+            alt={contact.name}
+            className="w-16 h-16 rounded-full object-cover border border-gray-700 shrink-0"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-black font-semibold flex items-center justify-center text-lg shrink-0">
+            {initials || '?'}
+          </div>
+        )}
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-1.5 bg-amber-500 text-black font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-amber-400 disabled:opacity-50"
+            >
+              {uploading ? <><Loader2 className="w-3 h-3 animate-spin" /> Uploading…</> : <><Camera className="w-3 h-3" /> {contact.photo_url ? 'Replace photo' : 'Upload photo'}</>}
+            </button>
+            {contact.photo_url && (
+              <button
+                type="button"
+                onClick={removePhoto}
+                className="text-xs text-gray-400 hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/5"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500">JPG, PNG, or HEIC · Max 5 MB</p>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) upload(file)
+            e.target.value = ''
+          }}
+        />
+      </div>
+      {error && <p className="text-[11px] text-red-400 mt-2">{error}</p>}
     </div>
   )
 }
