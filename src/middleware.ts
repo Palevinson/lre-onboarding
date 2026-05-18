@@ -26,9 +26,16 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const { pathname } = request.nextUrl
 
-    if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
+    // Public auth routes: anyone can reach these regardless of session state
+    const PUBLIC_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
+    const isPublic = PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
+
+    if (!user && !isPublic) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
+    // Signed-in users get bounced off sign-in/up pages — but NOT off the
+    // password-reset pages (a user with a recovery session is technically
+    // signed in but is mid-flow and needs to set a new password).
     if (user && (pathname === '/login' || pathname === '/signup')) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
@@ -41,5 +48,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  // /auth/* is excluded so the email-link callback can exchange its code
+  // without middleware redirecting the user (their session doesn't exist
+  // until the route handler runs).
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|auth/).*)'],
 }
