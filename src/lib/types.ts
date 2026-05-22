@@ -67,6 +67,8 @@ export type ReferenceDoc = {
   category: string
   sort_order: number
   content: string
+  file_path: string | null
+  file_filename: string | null
   updated_at: string
 }
 

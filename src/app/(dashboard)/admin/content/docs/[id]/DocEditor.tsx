@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, AlertCircle, Check, Trash2, Eye, Pencil } from 'lucide-react'
+import { Loader2, AlertCircle, Check, Trash2, Eye, Pencil, Upload, FileText, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { ReferenceDoc } from '@/lib/types'
 
@@ -15,10 +15,14 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
   const [category, setCategory] = useState(initial?.category ?? 'process')
   const [sortOrder, setSortOrder] = useState(initial?.sort_order ?? 100)
   const [content, setContent] = useState(initial?.content ?? '')
+  const [filePath, setFilePath] = useState<string | null>(initial?.file_path ?? null)
+  const [fileFilename, setFileFilename] = useState<string | null>(initial?.file_filename ?? null)
+  const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [justSaved, setJustSaved] = useState(false)
   const [tab, setTab] = useState<'edit' | 'preview'>('edit')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const save = async () => {
     setSaving(true)
@@ -35,6 +39,8 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
         category,
         sort_order: sortOrder,
         content,
+        file_path: filePath,
+        file_filename: fileFilename,
       }).select().single()
       setSaving(false)
       if (error) { setError(error.message); return }
@@ -46,6 +52,8 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
         category,
         sort_order: sortOrder,
         content,
+        file_path: filePath,
+        file_filename: fileFilename,
         updated_at: new Date().toISOString(),
       }).eq('id', initial!.id)
       setSaving(false)
@@ -111,6 +119,81 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
             <Input type="number" value={String(sortOrder)} onChange={v => setSortOrder(Number(v) || 100)} />
           </Field>
         </div>
+      </div>
+
+      {/* Attached file (PDF / EPUB) */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <label className="text-xs text-gray-400 uppercase tracking-widest block mb-2">Downloadable File (Optional)</label>
+        {filePath && fileFilename ? (
+          <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2">
+            <FileText className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-xs text-gray-200 truncate flex-1">{fileFilename}</span>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || isNew}
+              className="text-xs text-gray-400 hover:text-amber-500"
+            >
+              Replace
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm('Remove this file? Agents will no longer be able to download it.')) return
+                if (filePath) {
+                  const supabase = createClient()
+                  await supabase.storage.from('reference-files').remove([filePath])
+                }
+                setFilePath(null)
+                setFileFilename(null)
+              }}
+              className="text-gray-500 hover:text-red-400"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || isNew}
+            title={isNew ? 'Save the doc first, then attach a file' : 'Upload a PDF or EPUB'}
+            className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 border border-dashed border-gray-600 hover:border-amber-500/60 text-gray-300 hover:text-amber-500 px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+            {uploading ? 'Uploading…' : 'Upload PDF / EPUB'}
+          </button>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf,application/epub+zip,.pdf,.epub"
+          className="hidden"
+          onChange={async e => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            if (file.size > 50 * 1024 * 1024) { setError('Max file size is 50 MB'); return }
+            if (!initial) { setError('Save the doc first, then upload a file'); return }
+            setError('')
+            setUploading(true)
+            const supabase = createClient()
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf'
+            const path = `${initial.id}/${Date.now()}.${ext}`
+            const { error: upErr } = await supabase.storage
+              .from('reference-files')
+              .upload(path, file, { upsert: true, contentType: file.type || undefined })
+            if (upErr) { setError(upErr.message); setUploading(false); return }
+            // If there was a previous file, remove it
+            if (filePath && filePath !== path) {
+              await supabase.storage.from('reference-files').remove([filePath])
+            }
+            setFilePath(path)
+            setFileFilename(file.name)
+            setUploading(false)
+          }}
+        />
+        <p className="text-[11px] text-gray-500 mt-2">PDF or EPUB · Max 50 MB · Only signed-in agents can download — files are not publicly accessible.</p>
       </div>
 
       {/* Edit / Preview tabs */}

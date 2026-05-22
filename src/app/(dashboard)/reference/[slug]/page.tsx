@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import type { ReferenceDoc } from '@/lib/types'
 
@@ -63,6 +63,15 @@ export default async function ReferenceDocPage({ params }: { params: Promise<{ s
   if (!data) notFound()
   const doc = data as ReferenceDoc
 
+  // If the doc has a file attachment, generate a fresh 1-hour signed URL
+  let downloadUrl: string | null = null
+  if (doc.file_path) {
+    const { data: signed } = await supabase.storage
+      .from('reference-files')
+      .createSignedUrl(doc.file_path, 60 * 60)
+    downloadUrl = signed?.signedUrl ?? null
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <Link href="/reference" className="inline-flex items-center text-xs text-gray-400 hover:text-amber-500">
@@ -70,6 +79,17 @@ export default async function ReferenceDocPage({ params }: { params: Promise<{ s
       </Link>
       <article className="bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8">
         <h1 className="text-2xl font-serif text-white mb-4 pb-4 border-b border-gray-800">{doc.title}</h1>
+        {downloadUrl && doc.file_filename && (
+          <a
+            href={downloadUrl}
+            download={doc.file_filename}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-6 inline-flex items-center gap-2 bg-amber-500 text-black font-semibold py-2.5 px-4 rounded-lg text-sm hover:bg-amber-400"
+          >
+            <Download className="w-4 h-4" /> Download the Free PDF version
+          </a>
+        )}
         <div>{renderMarkdown(doc.content)}</div>
       </article>
     </div>
