@@ -78,6 +78,16 @@ export default async function ReferenceDocPage({ params }: { params: Promise<{ s
         <ChevronLeft className="w-4 h-4" /> Back to Reference Library
       </Link>
       <article className="bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8">
+        {doc.thumbnail_url && (
+          <div className="mb-6 flex justify-center sm:justify-start">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={doc.thumbnail_url}
+              alt={`${doc.title} cover`}
+              className="w-40 sm:w-48 rounded-lg shadow-lg border border-gray-800"
+            />
+          </div>
+        )}
         <h1 className="text-2xl font-serif text-white mb-4 pb-4 border-b border-gray-800">{doc.title}</h1>
         {downloadUrl && doc.file_filename && (
           <a

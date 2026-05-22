@@ -44,10 +44,18 @@ export default async function ReferencePage() {
               <Link
                 key={doc.id}
                 href={`/reference/${doc.slug}`}
-                className="group flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-amber-500/40 rounded-xl p-5 transition-colors"
+                className="group flex items-center gap-4 bg-gray-900 border border-gray-800 hover:border-amber-500/40 rounded-xl p-4 transition-colors"
               >
-                <span className="text-white text-sm font-medium">{doc.title}</span>
-                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-amber-500 transition-colors" />
+                {doc.thumbnail_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={doc.thumbnail_url}
+                    alt=""
+                    className="w-12 h-16 rounded object-cover border border-gray-800 shrink-0 shadow"
+                  />
+                )}
+                <span className="text-white text-sm font-medium flex-1">{doc.title}</span>
+                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-amber-500 transition-colors shrink-0" />
               </Link>
             ))}
           </div>

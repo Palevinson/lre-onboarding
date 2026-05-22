@@ -69,6 +69,7 @@ export type ReferenceDoc = {
   content: string
   file_path: string | null
   file_filename: string | null
+  thumbnail_url: string | null
   updated_at: string
 }
 

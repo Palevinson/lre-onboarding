@@ -1,7 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, AlertCircle, Check, Trash2, Eye, Pencil, Upload, FileText, X } from 'lucide-react'
+import { Loader2, AlertCircle, Check, Trash2, Eye, Pencil, Upload, FileText, X, ImageIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { ReferenceDoc } from '@/lib/types'
 
@@ -17,12 +17,15 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
   const [content, setContent] = useState(initial?.content ?? '')
   const [filePath, setFilePath] = useState<string | null>(initial?.file_path ?? null)
   const [fileFilename, setFileFilename] = useState<string | null>(initial?.file_filename ?? null)
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(initial?.thumbnail_url ?? null)
   const [uploading, setUploading] = useState(false)
+  const [uploadingThumb, setUploadingThumb] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [justSaved, setJustSaved] = useState(false)
   const [tab, setTab] = useState<'edit' | 'preview'>('edit')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const thumbInputRef = useRef<HTMLInputElement>(null)
 
   const save = async () => {
     setSaving(true)
@@ -41,6 +44,7 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
         content,
         file_path: filePath,
         file_filename: fileFilename,
+        thumbnail_url: thumbnailUrl,
       }).select().single()
       setSaving(false)
       if (error) { setError(error.message); return }
@@ -54,6 +58,7 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
         content,
         file_path: filePath,
         file_filename: fileFilename,
+        thumbnail_url: thumbnailUrl,
         updated_at: new Date().toISOString(),
       }).eq('id', initial!.id)
       setSaving(false)
@@ -119,6 +124,75 @@ export default function DocEditor({ initial }: { initial: ReferenceDoc | null })
             <Input type="number" value={String(sortOrder)} onChange={v => setSortOrder(Number(v) || 100)} />
           </Field>
         </div>
+      </div>
+
+      {/* Thumbnail / cover image */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <label className="text-xs text-gray-400 uppercase tracking-widest block mb-2">Thumbnail / Cover Image (Optional)</label>
+        <div className="flex items-center gap-4">
+          {thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={thumbnailUrl} alt="Cover" className="w-16 h-20 object-cover rounded border border-gray-700 shrink-0" />
+          ) : (
+            <div className="w-16 h-20 rounded border border-dashed border-gray-700 bg-gray-800/50 flex items-center justify-center shrink-0">
+              <ImageIcon className="w-5 h-5 text-gray-600" />
+            </div>
+          )}
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => thumbInputRef.current?.click()}
+                disabled={uploadingThumb || isNew}
+                title={isNew ? 'Save the doc first, then add a thumbnail' : 'Upload a cover / thumbnail'}
+                className="inline-flex items-center gap-1.5 bg-amber-500 text-black font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {uploadingThumb ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                {uploadingThumb ? 'Uploading…' : (thumbnailUrl ? 'Replace' : 'Upload')}
+              </button>
+              {thumbnailUrl && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm('Remove the thumbnail?')) return
+                    // We don't strictly need to delete from storage — replacing later upserts.
+                    setThumbnailUrl(null)
+                  }}
+                  className="text-xs text-gray-400 hover:text-red-400 px-2 py-1.5"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500">JPG, PNG, or HEIC · Max 5 MB · Public (anyone with the URL can view)</p>
+          </div>
+        </div>
+        <input
+          ref={thumbInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async e => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            if (!file.type.startsWith('image/')) { setError('Image files only'); return }
+            if (file.size > 5 * 1024 * 1024) { setError('Thumbnail max 5 MB'); return }
+            if (!initial) { setError('Save the doc first, then upload a thumbnail'); return }
+            setError('')
+            setUploadingThumb(true)
+            const supabase = createClient()
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+            const path = `${initial.id}/${Date.now()}.${ext}`
+            const { error: upErr } = await supabase.storage
+              .from('reference-thumbnails')
+              .upload(path, file, { upsert: true, contentType: file.type || undefined })
+            if (upErr) { setError(upErr.message); setUploadingThumb(false); return }
+            const { data: pub } = supabase.storage.from('reference-thumbnails').getPublicUrl(path)
+            setThumbnailUrl(pub.publicUrl)
+            setUploadingThumb(false)
+          }}
+        />
       </div>
 
       {/* Attached file (PDF / EPUB) */}
