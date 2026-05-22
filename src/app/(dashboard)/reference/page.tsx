@@ -21,6 +21,7 @@ export default async function ReferencePage() {
     services:     'Services & Add-Ons',
     process:      'Process Guides',
     checklist:    'Contract Checklists',
+    training:     'Training & Resources',
   }
 
   return (

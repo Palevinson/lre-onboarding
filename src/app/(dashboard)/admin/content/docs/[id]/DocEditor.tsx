@@ -5,7 +5,7 @@ import { Loader2, AlertCircle, Check, Trash2, Eye, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { ReferenceDoc } from '@/lib/types'
 
-const CATEGORIES = ['compensation', 'services', 'process', 'checklist']
+const CATEGORIES = ['compensation', 'services', 'process', 'checklist', 'training']
 
 export default function DocEditor({ initial }: { initial: ReferenceDoc | null }) {
   const router = useRouter()
