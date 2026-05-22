@@ -19,6 +19,9 @@ export type TaskAction = {
   label: string
 }
 
+export type TaskResponseType = 'checkbox' | 'decision'
+export type TaskResponseValue = 'yes' | 'maybe_later' | null
+
 export type TaskTemplate = {
   id: string
   audience: TaskAudience
@@ -32,6 +35,7 @@ export type TaskTemplate = {
   allow_upload: boolean
   upload_label: string | null
   kind: string | null   // 'headshot' etc — special-cases
+  response_type: TaskResponseType
 }
 
 export type TaskCompletion = {
@@ -46,6 +50,7 @@ export type TaskCompletion = {
   upload_path: string | null
   upload_filename: string | null
   upload_uploaded_at: string | null
+  response_value: TaskResponseValue
 }
 
 export type TeamContact = {

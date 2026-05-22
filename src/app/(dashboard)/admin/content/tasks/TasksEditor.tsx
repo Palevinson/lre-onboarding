@@ -52,6 +52,7 @@ export default function TasksEditor({ initial }: { initial: TaskTemplate[] }) {
       owner_hint: draft.owner_hint?.trim() || null,
       sort_order: draft.sort_order ?? 100,
       actions: (draft.actions ?? []).filter(a => a.url.trim()),
+      response_type: draft.response_type ?? 'checkbox',
     }).select().single()
     if (error) { setError(error.message); return }
     setTasks(prev => [...prev, data as TaskTemplate])
@@ -210,6 +211,29 @@ function Row({
                 onChange={v => onChange('upload_label', v || null)}
               />
             )}
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 uppercase tracking-widest block mb-1.5">Response Type</label>
+            <div className="flex gap-2">
+              {([
+                { value: 'checkbox', label: 'Single checkbox', desc: 'Done / Not done' },
+                { value: 'decision', label: 'Yes / Maybe Later', desc: 'Two-button choice' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onChange('response_type', opt.value)}
+                  className={`flex-1 text-left p-2.5 rounded-lg border transition-colors ${
+                    task.response_type === opt.value
+                      ? 'bg-amber-500/10 border-amber-500 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
+                  }`}
+                >
+                  <div className="text-xs font-semibold">{opt.label}</div>
+                  <div className="text-[11px] text-gray-400 mt-0.5">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input

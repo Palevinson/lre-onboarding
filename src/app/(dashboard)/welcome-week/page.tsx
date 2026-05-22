@@ -65,6 +65,7 @@ function Section({
               initialDone={!!c?.completed}
               initialUploadPath={c?.upload_path ?? null}
               initialUploadFilename={c?.upload_filename ?? null}
+              initialResponseValue={(c?.response_value ?? null) as 'yes' | 'maybe_later' | null}
             />
           )
         })}

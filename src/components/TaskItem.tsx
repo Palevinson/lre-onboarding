@@ -2,7 +2,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { Check, Loader2, ExternalLink, Mail, Upload, FileText, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { TaskTemplate } from '@/lib/types'
+import type { TaskTemplate, TaskResponseValue } from '@/lib/types'
 
 type Props = {
   template: TaskTemplate
@@ -10,23 +10,29 @@ type Props = {
   initialDone: boolean
   initialUploadPath?: string | null
   initialUploadFilename?: string | null
+  initialResponseValue?: TaskResponseValue
   readOnly?: boolean
 }
 
 export default function TaskItem({
   template, profileId, initialDone,
   initialUploadPath = null, initialUploadFilename = null,
+  initialResponseValue = null,
   readOnly,
 }: Props) {
   const [done, setDone] = useState(initialDone)
+  const [responseValue, setResponseValue] = useState<TaskResponseValue>(initialResponseValue)
   const [uploadPath, setUploadPath] = useState(initialUploadPath)
   const [uploadFilename, setUploadFilename] = useState(initialUploadFilename)
   const [, startTransition] = useTransition()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const isDecision = template.response_type === 'decision'
+
   const toggle = async (e: React.MouseEvent) => {
-    // Don't toggle if click came from inside an interactive child (a, button)
+    // Decision tasks are handled by their own buttons — don't toggle on row click
+    if (isDecision) return
     if ((e.target as HTMLElement).closest('a, button, [data-no-toggle]')) return
     if (readOnly || saving) return
     const next = !done
@@ -51,21 +57,58 @@ export default function TaskItem({
     }
   }
 
+  const pickDecision = async (value: 'yes' | 'maybe_later') => {
+    if (readOnly || saving) return
+    const wasValue = responseValue
+    const wasDone = done
+    setResponseValue(value)
+    setDone(true)
+    setSaving(true)
+    setError('')
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('task_completions').upsert({
+        profile_id: profileId,
+        template_id: template.id,
+        completed: true,
+        completed_at: new Date().toISOString(),
+        response_value: value,
+      }, { onConflict: 'profile_id,template_id' })
+      if (error) {
+        setResponseValue(wasValue)
+        setDone(wasDone)
+        setError(error.message)
+      }
+    } finally {
+      setSaving(false)
+      startTransition(() => {})
+    }
+  }
+
   return (
     <div
       onClick={toggle}
       className={`group flex items-start gap-3 p-3.5 rounded-xl border transition-colors ${
-        readOnly ? 'cursor-default' : 'cursor-pointer hover:border-amber-500/40'
+        isDecision || readOnly ? 'cursor-default' : 'cursor-pointer hover:border-amber-500/40'
       } ${
         done ? 'bg-gray-900/40 border-gray-800' : 'bg-gray-900 border-gray-800'
       }`}
     >
-      <div className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-        done ? 'bg-amber-500 border-amber-500' : 'border-2 border-gray-600 group-hover:border-amber-500/60'
-      }`}>
-        {saving ? <Loader2 className="w-3 h-3 animate-spin text-gray-300" /> :
-         done ? <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} /> : null}
-      </div>
+      {isDecision ? (
+        <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+          done ? 'bg-amber-500/20 border-2 border-amber-500' : 'border-2 border-gray-600'
+        }`}>
+          {saving ? <Loader2 className="w-3 h-3 animate-spin text-amber-500" /> :
+           done ? <Check className="w-3 h-3 text-amber-500" strokeWidth={3} /> : null}
+        </div>
+      ) : (
+        <div className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+          done ? 'bg-amber-500 border-amber-500' : 'border-2 border-gray-600 group-hover:border-amber-500/60'
+        }`}>
+          {saving ? <Loader2 className="w-3 h-3 animate-spin text-gray-300" /> :
+           done ? <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} /> : null}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className={`text-sm font-medium ${done ? 'text-gray-500 line-through' : 'text-white'}`}>
@@ -95,6 +138,24 @@ export default function TaskItem({
             ))}
           </div>
         )}
+        {isDecision && (
+          <div className="flex gap-2 mt-2" data-no-toggle>
+            <DecisionButton
+              label="Yes"
+              active={responseValue === 'yes'}
+              tone="yes"
+              disabled={readOnly}
+              onClick={() => pickDecision('yes')}
+            />
+            <DecisionButton
+              label="Maybe Later"
+              active={responseValue === 'maybe_later'}
+              tone="later"
+              disabled={readOnly}
+              onClick={() => pickDecision('maybe_later')}
+            />
+          </div>
+        )}
         {template.allow_upload && (
           <FileSlot
             profileId={profileId}
@@ -109,6 +170,37 @@ export default function TaskItem({
         {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
       </div>
     </div>
+  )
+}
+
+function DecisionButton({
+  label, active, tone, disabled, onClick,
+}: {
+  label: string
+  active: boolean
+  tone: 'yes' | 'later'
+  disabled?: boolean
+  onClick: () => void
+}) {
+  const baseClasses = 'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors'
+  const activeYes = 'bg-green-500 text-black border-green-500'
+  const activeLater = 'bg-amber-500 text-black border-amber-500'
+  const idle = 'bg-gray-800 text-gray-300 border-gray-700 hover:border-amber-500/60'
+  const disabledClasses = 'opacity-40 cursor-not-allowed'
+
+  const cls = active
+    ? (tone === 'yes' ? activeYes : activeLater)
+    : idle
+
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onClick() }}
+      disabled={disabled}
+      className={`${baseClasses} ${cls} ${disabled ? disabledClasses : ''}`}
+    >
+      {label}
+    </button>
   )
 }
 
