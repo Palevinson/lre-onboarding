@@ -12,17 +12,23 @@ export default function Icon() {
           width: '100%',
           height: '100%',
           background: 'linear-gradient(135deg, #1e3d6b 0%, #030712 100%)',
-          color: '#f59e0b',
-          fontSize: 88,
-          fontWeight: 600,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontFamily: 'serif',
-          letterSpacing: 4,
         }}
       >
-        LRE
+        <svg
+          width="128"
+          height="128"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
       </div>
     ),
     size
