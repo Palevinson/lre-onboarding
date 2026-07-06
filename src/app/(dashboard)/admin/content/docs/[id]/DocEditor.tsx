@@ -369,7 +369,11 @@ function renderMarkdown(md: string): React.ReactNode[] {
       .replace(/`([^`]+)`/g, '<code class="bg-gray-800 text-amber-300 rounded px-1.5 py-0.5 text-xs">$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em class="italic">$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a class="text-amber-500 hover:underline" href="$2">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+        const external = /^https?:\/\//.test(url)
+        const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : ''
+        return `<a class="text-amber-500 hover:underline" href="${url}"${attrs}>${text}</a>`
+      })
 
   for (const raw of lines) {
     const line = raw.trimEnd()
