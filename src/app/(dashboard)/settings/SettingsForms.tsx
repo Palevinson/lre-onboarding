@@ -8,21 +8,34 @@ type Props = {
   profileId: string
   initialFullName: string
   initialLicense: string
+  initialPhone: string
+  initialTeam: string
+  initialWebsite: string
 }
 
-export default function SettingsForms({ profileId, initialFullName, initialLicense }: Props) {
+export default function SettingsForms(props: Props) {
   return (
     <div className="space-y-6">
-      <ProfileForm profileId={profileId} initialFullName={initialFullName} initialLicense={initialLicense} />
+      <ProfileForm {...props} />
       <PasswordForm />
     </div>
   )
 }
 
-function ProfileForm({ profileId, initialFullName, initialLicense }: Props) {
+function ProfileForm({
+  profileId,
+  initialFullName,
+  initialLicense,
+  initialPhone,
+  initialTeam,
+  initialWebsite,
+}: Props) {
   const router = useRouter()
   const [fullName, setFullName] = useState(initialFullName)
   const [license, setLicense] = useState(initialLicense)
+  const [phone, setPhone] = useState(initialPhone)
+  const [team, setTeam] = useState(initialTeam)
+  const [website, setWebsite] = useState(initialWebsite)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [savedJust, setSavedJust] = useState(false)
@@ -33,12 +46,21 @@ function ProfileForm({ profileId, initialFullName, initialLicense }: Props) {
     const supabase = createClient()
     const { error } = await supabase
       .from('profiles')
-      .update({ full_name: fullName.trim() || null, license_number: license.trim() || null })
+      .update({
+        full_name: fullName.trim() || null,
+        license_number: license.trim() || null,
+        phone: phone.trim() || null,
+        team_name: team.trim() || null,
+        website_url: website.trim() || null,
+      })
       .eq('id', profileId)
     setSaving(false)
     if (error) { setError(error.message); return }
     setSavedJust(true)
     setTimeout(() => setSavedJust(false), 2500)
+    // Push the updated profile to the public LRE Realty website (fire-and-forget;
+    // never blocks the save). No-op until WEBSITE_AGENT_WEBHOOK_* env is set.
+    fetch('/api/website-sync', { method: 'POST' }).catch(() => {})
     router.refresh()
   }
 
@@ -61,9 +83,22 @@ function ProfileForm({ profileId, initialFullName, initialLicense }: Props) {
       <Field label="Full Name">
         <Input value={fullName} onChange={setFullName} placeholder="Jane Doe" />
       </Field>
+      <Field label="Phone">
+        <Input value={phone} onChange={setPhone} placeholder="(405) 555-0134" />
+      </Field>
+      <Field label="Team Name">
+        <Input value={team} onChange={setTeam} placeholder="Optional — if you're on a team" />
+      </Field>
+      <Field label="Website">
+        <Input value={website} onChange={setWebsite} placeholder="Optional — yoursite.com" />
+      </Field>
       <Field label="License Number">
         <Input value={license} onChange={setLicense} placeholder="Optional" />
       </Field>
+      <p className="text-[11px] text-gray-500 leading-relaxed">
+        Your name, photo, phone, email, team, and website appear on your public LRE Realty profile
+        page. Changes here update it automatically.
+      </p>
       <button
         type="submit"
         disabled={saving}

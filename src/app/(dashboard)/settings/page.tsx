@@ -3,6 +3,12 @@ import SettingsForms from './SettingsForms'
 
 export default async function SettingsPage() {
   const profile = await requireProfile()
+  // Public-profile columns added for the website sync (not in the base Profile type).
+  const p = profile as typeof profile & {
+    phone?: string | null
+    team_name?: string | null
+    website_url?: string | null
+  }
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
       <div>
@@ -17,6 +23,9 @@ export default async function SettingsPage() {
         profileId={profile.id}
         initialFullName={profile.full_name ?? ''}
         initialLicense={profile.license_number ?? ''}
+        initialPhone={p.phone ?? ''}
+        initialTeam={p.team_name ?? ''}
+        initialWebsite={p.website_url ?? ''}
       />
     </div>
   )

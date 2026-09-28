@@ -165,6 +165,7 @@ export default function TaskItem({
             uploadFilename={uploadFilename}
             onChange={(path, filename) => { setUploadPath(path); setUploadFilename(filename) }}
             readOnly={readOnly}
+            syncWebsiteOnChange={template.kind === 'headshot'}
           />
         )}
         {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
@@ -229,7 +230,7 @@ function ActionButton({ url, label, done }: { url: string; label: string; done: 
 }
 
 function FileSlot({
-  profileId, templateId, label, uploadPath, uploadFilename, onChange, readOnly,
+  profileId, templateId, label, uploadPath, uploadFilename, onChange, readOnly, syncWebsiteOnChange,
 }: {
   profileId: string
   templateId: string
@@ -238,6 +239,8 @@ function FileSlot({
   uploadFilename: string | null
   onChange: (path: string | null, filename: string | null) => void
   readOnly?: boolean
+  /** When true (headshot task), push the new photo to the public website. */
+  syncWebsiteOnChange?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -276,6 +279,9 @@ function FileSlot({
       }, { onConflict: 'profile_id,template_id' })
       if (dbErr) { setErr(dbErr.message); return }
       onChange(path, file.name)
+      // Headshot uploaded/replaced → sync the public LRE Realty profile
+      // (fire-and-forget; no-op until WEBSITE_AGENT_WEBHOOK_* env is set).
+      if (syncWebsiteOnChange) fetch('/api/website-sync', { method: 'POST' }).catch(() => {})
     } finally {
       setUploading(false)
     }

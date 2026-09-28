@@ -7,6 +7,7 @@ import { getHeadshotUrls } from '@/lib/headshots'
 import TaskItem from '@/components/TaskItem'
 import RoleSelector from '@/components/RoleSelector'
 import type { Profile, TaskTemplate, TaskCompletion, AgentIntake, IntakeQuestion } from '@/lib/types'
+import PublishAgentButton from '@/components/PublishAgentButton'
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const caller = await requireRole(['manager', 'admin'])
@@ -78,6 +79,9 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
                   <Calendar className="w-3 h-3 mr-1.5" />Started {new Date(profile.start_date).toLocaleDateString()}
                 </span>
               )}
+            </div>
+            <div className="mt-4">
+              <PublishAgentButton profileId={profile.id} />
             </div>
           </div>
         </div>

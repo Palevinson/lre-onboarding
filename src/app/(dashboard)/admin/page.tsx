@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getHeadshotUrls } from '@/lib/headshots'
 import type { Profile, TaskTemplate, TaskCompletion, UserRole } from '@/lib/types'
+import PublishAllButton from '@/components/PublishAllButton'
 
 export default async function AdminRosterPage() {
   const caller = await requireRole(['manager', 'admin'])
@@ -85,6 +86,18 @@ export default async function AdminRosterPage() {
         <StatTile icon={<Users className="w-5 h-5" />} label="Active Agents" value={totalAgents} />
         <StatTile icon={<FileText className="w-5 h-5" />} label="Intakes Submitted" value={`${totalSubmittedIntake} of ${totalAgents}`} />
         <StatTile icon={<ClipboardCheck className="w-5 h-5" />} label="Leadership To-Dos Pending" value={totalLeadershipPending} />
+      </div>
+
+      {/* Website publishing */}
+      <div className="flex items-start justify-between gap-4 flex-wrap rounded-2xl border border-gray-800 bg-gray-900 p-5">
+        <div>
+          <h2 className="text-white font-semibold">Public website</h2>
+          <p className="text-gray-400 text-sm mt-1 max-w-xl">
+            Publish active agents to lrerealty.com/agents. Profiles also sync automatically
+            when an agent uploads a headshot or saves their profile.
+          </p>
+        </div>
+        <PublishAllButton />
       </div>
 
       {/* Agents */}
