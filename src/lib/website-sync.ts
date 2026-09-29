@@ -11,10 +11,21 @@ import type { Profile } from '@/lib/types'
  * Env: WEBSITE_AGENT_WEBHOOK_URL, WEBSITE_AGENT_WEBHOOK_SECRET.
  */
 
+type SocialLinks = {
+  instagram?: string
+  facebook?: string
+  linkedin?: string
+  youtube?: string
+  tiktok?: string
+  x?: string
+}
+
 type PublicProfile = Profile & {
   phone?: string | null
   team_name?: string | null
   website_url?: string | null
+  bio?: string | null
+  social_links?: SocialLinks | null
 }
 
 export type SyncResult = {
@@ -47,6 +58,14 @@ export async function syncProfileById(
   const headshots = await getHeadshotUrls(admin, [profile.id])
   const photoUrl = headshots.get(profile.id)
 
+  // Drop blank strings from social_links before sending
+  const socials = profile.social_links ?? {}
+  const cleanedSocials: SocialLinks = {}
+  for (const [k, v] of Object.entries(socials)) {
+    if (typeof v === 'string' && v.trim()) cleanedSocials[k as keyof SocialLinks] = v.trim()
+  }
+  const hasSocials = Object.keys(cleanedSocials).length > 0
+
   const payload = {
     agent_id: profile.id,
     name: profile.full_name ?? profile.email,
@@ -56,6 +75,8 @@ export async function syncProfileById(
     team: profile.team_name ?? undefined,
     website: profile.website_url ?? undefined,
     photo: photoUrl ? { url: photoUrl } : undefined,
+    bio: profile.bio ?? undefined,
+    socials: hasSocials ? cleanedSocials : undefined,
     status,
   }
 

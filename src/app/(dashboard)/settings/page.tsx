@@ -1,6 +1,15 @@
 import { requireProfile } from '@/lib/auth'
 import SettingsForms from './SettingsForms'
 
+type SocialLinks = {
+  instagram?: string
+  facebook?: string
+  linkedin?: string
+  youtube?: string
+  tiktok?: string
+  x?: string
+}
+
 export default async function SettingsPage() {
   const profile = await requireProfile()
   // Public-profile columns added for the website sync (not in the base Profile type).
@@ -8,6 +17,8 @@ export default async function SettingsPage() {
     phone?: string | null
     team_name?: string | null
     website_url?: string | null
+    bio?: string | null
+    social_links?: SocialLinks | null
   }
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
@@ -26,6 +37,8 @@ export default async function SettingsPage() {
         initialPhone={p.phone ?? ''}
         initialTeam={p.team_name ?? ''}
         initialWebsite={p.website_url ?? ''}
+        initialBio={p.bio ?? ''}
+        initialSocials={p.social_links ?? {}}
       />
     </div>
   )
