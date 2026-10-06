@@ -19,6 +19,7 @@ type SocialLinks = {
 type Props = {
   profileId: string
   initialFullName: string
+  initialTitle: string
   initialLicense: string
   initialPhone: string
   initialTeam: string
@@ -47,6 +48,7 @@ export default function SettingsForms(props: Props) {
 function ProfileForm({
   profileId,
   initialFullName,
+  initialTitle,
   initialLicense,
   initialPhone,
   initialTeam,
@@ -54,6 +56,7 @@ function ProfileForm({
 }: Props) {
   const router = useRouter()
   const [fullName, setFullName] = useState(initialFullName)
+  const [title, setTitle] = useState(initialTitle)
   const [license, setLicense] = useState(initialLicense)
   const [phone, setPhone] = useState(initialPhone)
   const [team, setTeam] = useState(initialTeam)
@@ -70,6 +73,7 @@ function ProfileForm({
       .from('profiles')
       .update({
         full_name: fullName.trim() || null,
+        title: title.trim() || null,
         license_number: license.trim() || null,
         phone: phone.trim() || null,
         team_name: team.trim() || null,
@@ -102,6 +106,9 @@ function ProfileForm({
       )}
       <Field label="Full Name">
         <Input value={fullName} onChange={setFullName} placeholder="Jane Doe" />
+      </Field>
+      <Field label="Title">
+        <Input value={title} onChange={setTitle} placeholder="e.g. REALTOR®, Broker, Team Lead" />
       </Field>
       <Field label="Phone">
         <Input value={phone} onChange={setPhone} placeholder="(405) 555-0134" />

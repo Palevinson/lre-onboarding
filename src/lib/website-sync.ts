@@ -21,6 +21,7 @@ type SocialLinks = {
 }
 
 type PublicProfile = Profile & {
+  title?: string | null
   phone?: string | null
   team_name?: string | null
   website_url?: string | null
@@ -69,7 +70,7 @@ export async function syncProfileById(
   const payload = {
     agent_id: profile.id,
     name: profile.full_name ?? profile.email,
-    title: profile.role === 'manager' ? 'Team Lead' : 'Real Estate Agent',
+    title: profile.title?.trim() || (profile.role === 'manager' ? 'Team Lead' : 'Real Estate Agent'),
     phone: profile.phone ?? undefined,
     email: profile.email,
     team: profile.team_name ?? undefined,

@@ -14,6 +14,7 @@ export default async function SettingsPage() {
   const profile = await requireProfile()
   // Public-profile columns added for the website sync (not in the base Profile type).
   const p = profile as typeof profile & {
+    title?: string | null
     phone?: string | null
     team_name?: string | null
     website_url?: string | null
@@ -33,6 +34,7 @@ export default async function SettingsPage() {
       <SettingsForms
         profileId={profile.id}
         initialFullName={profile.full_name ?? ''}
+        initialTitle={p.title ?? ''}
         initialLicense={profile.license_number ?? ''}
         initialPhone={p.phone ?? ''}
         initialTeam={p.team_name ?? ''}
