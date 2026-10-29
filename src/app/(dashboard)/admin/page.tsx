@@ -1,14 +1,20 @@
 import Link from 'next/link'
-import { ArrowRight, Users, ClipboardCheck, FileText, UserPlus, Settings, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Users, ClipboardCheck, FileText, UserPlus, Settings, ShieldCheck, Archive, EyeOff } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getHeadshotUrls } from '@/lib/headshots'
 import type { Profile, TaskTemplate, TaskCompletion, UserRole } from '@/lib/types'
 import PublishAllButton from '@/components/PublishAllButton'
 
-export default async function AdminRosterPage() {
+export default async function AdminRosterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ archived?: string }>
+}) {
   const caller = await requireRole(['manager', 'admin'])
   const supabase = await createClient()
+  const sp = await searchParams
+  const showArchived = sp.archived === '1'
 
   // Everyone in the system — we'll group by role on render
   const [profilesRes, templatesRes, completionsRes, intakeRes] = await Promise.all([
@@ -45,8 +51,14 @@ export default async function AdminRosterPage() {
     }
   }
 
-  const agents = profiles.filter(p => p.role === 'agent').map(buildStats)
-  const staff  = profiles.filter(p => p.role !== 'agent').map(buildStats)
+  // Active vs departed — hide departed from the main sections, surface them in
+  // a separate "Former Agents" block when the admin opts in via ?archived=1
+  const active   = profiles.filter(p => p.is_active)
+  const departed = profiles.filter(p => !p.is_active)
+
+  const agents = active.filter(p => p.role === 'agent').map(buildStats)
+  const staff  = active.filter(p => p.role !== 'agent').map(buildStats)
+  const former = departed.map(buildStats)
 
   const totalAgents = agents.length
   const totalSubmittedIntake = agents.filter(s => s.intakeSubmitted).length
@@ -130,7 +142,57 @@ export default async function AdminRosterPage() {
           </div>
         </section>
       )}
+
+      {/* Former agents — hidden by default, toggled via ?archived=1 */}
+      {former.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-xs uppercase tracking-widest text-gray-500 font-semibold flex items-center gap-2">
+              <Archive className="w-3.5 h-3.5" />
+              Former Agents <span className="text-gray-600">· {former.length}</span>
+            </h2>
+            <Link
+              href={showArchived ? '/admin' : '/admin?archived=1'}
+              className="text-xs text-amber-500 hover:underline inline-flex items-center gap-1"
+            >
+              {showArchived ? <><EyeOff className="w-3 h-3" /> Hide</> : <>Show</>}
+            </Link>
+          </div>
+          {showArchived && (
+            <div className="space-y-3">
+              {former.map(s => (
+                <FormerRow key={s.profile.id} profile={s.profile} headshotUrl={s.headshotUrl} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
+  )
+}
+
+function FormerRow({ profile, headshotUrl }: { profile: Profile; headshotUrl: string | null }) {
+  const departed = profile.departed_at
+    ? new Date(profile.departed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    : null
+  return (
+    <Link
+      href={`/admin/${profile.id}`}
+      className="group flex items-center gap-4 bg-gray-900/40 border border-gray-800 hover:border-amber-500/40 rounded-xl p-4 transition-colors opacity-70 hover:opacity-100"
+    >
+      <Avatar profile={profile} headshotUrl={headshotUrl} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="text-gray-200 font-medium truncate">{profile.full_name ?? profile.email}</span>
+          <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded bg-gray-800 text-gray-400">Archived</span>
+        </div>
+        <div className="text-xs text-gray-500 truncate mt-0.5">
+          {profile.email}
+          {departed && <> · Departed {departed}</>}
+        </div>
+      </div>
+      <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-amber-500 shrink-0 transition-colors" />
+    </Link>
   )
 }
 

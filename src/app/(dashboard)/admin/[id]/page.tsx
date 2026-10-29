@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getHeadshotUrls } from '@/lib/headshots'
 import TaskItem from '@/components/TaskItem'
 import RoleSelector from '@/components/RoleSelector'
+import DepartureControls from '@/components/DepartureControls'
 import type { Profile, TaskTemplate, TaskCompletion, AgentIntake, IntakeQuestion } from '@/lib/types'
 import PublishAgentButton from '@/components/PublishAgentButton'
 
@@ -48,6 +49,23 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       <Link href="/admin" className="inline-flex items-center text-xs text-gray-400 hover:text-amber-500">
         <ChevronLeft className="w-4 h-4" /> Back to Roster
       </Link>
+
+      {/* Archived banner — only when the agent has departed */}
+      {!profile.is_active && (
+        <div className="bg-amber-500/10 border border-amber-500/40 rounded-xl px-5 py-3 flex items-center justify-between gap-4">
+          <div className="text-sm text-amber-200">
+            <strong className="text-white">Archived</strong> — no longer with LRE Realty
+            {profile.departed_at && (
+              <span className="text-amber-300/80">
+                {' '}· Departed {new Date(profile.departed_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] uppercase tracking-widest text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded">
+            Archived
+          </span>
+        </div>
+      )}
 
       {/* Profile header */}
       <div className="bg-gradient-to-br from-gray-900 to-gray-900/40 border border-gray-800 rounded-2xl p-6 sm:p-8">
@@ -111,6 +129,17 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           currentRole={profile.role}
           isSelf={profile.id === caller.id}
           isLastAdmin={profile.role === 'admin' && adminCount <= 1}
+        />
+      )}
+
+      {/* Departure / reinstate — admins only */}
+      {caller.role === 'admin' && (
+        <DepartureControls
+          targetProfileId={profile.id}
+          targetName={profile.full_name ?? profile.email}
+          isActive={profile.is_active}
+          departedAt={profile.departed_at}
+          isSelf={profile.id === caller.id}
         />
       )}
 

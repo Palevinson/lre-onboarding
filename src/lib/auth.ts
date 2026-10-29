@@ -23,6 +23,8 @@ export async function requireProfile(): Promise<Profile> {
     await supabase.auth.signOut()
     redirect('/login')
   }
+  // Departed agents keep their account (for 1099 / history) but cannot use the app.
+  if (profile.is_active === false) redirect('/access-revoked')
   return profile as Profile
 }
 

@@ -10,6 +10,7 @@ export type Profile = {
   start_date: string | null
   mentor_id: string | null
   is_active: boolean
+  departed_at: string | null
   created_at: string
   updated_at: string
 }
